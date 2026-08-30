@@ -80,7 +80,7 @@ cmd_uninstall() {
         error "uninstall.sh not found or not executable at $INSTALL_DIR"
         exit 1
     fi
-    "$INSTALL_DIR/uninstall.sh" "${passthru[@]}"
+    "$INSTALL_DIR/uninstall.sh" "${passthru[@]+"${passthru[@]}"}"
 
     if [ -L "$BIN_DIR/aiwf" ]; then
         rm "$BIN_DIR/aiwf"

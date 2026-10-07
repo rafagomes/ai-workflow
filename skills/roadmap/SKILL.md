@@ -208,6 +208,6 @@ Then create each `docs/roadmap/NNN_<phase-name>.md` using the single-phase forma
 3. Suggest next steps based on spec coverage:
    - **Tasks need specs?** → "Create detailed specs before executing: `/spec <feature-name>` for each task (or `/speckit.specify` with GitHub Spec Kit). `complexity:high` tasks must produce a sliced directory-form spec."
    - **All tasks have specs, no GitHub issues yet?** → "Run `/issues docs/roadmap/README.md` to file milestones (one per phase) and issues (one per task/slice)."
-   - **All tasks have specs + issues?** → "Run `/autopilot docs/roadmap/README.md` to execute the full roadmap"
-   - **Start one phase?** → "Run `/issues docs/roadmap/NNN_<phase-name>.md`, then `/autopilot docs/roadmap/NNN_<phase-name>.md`"
-   - **Single task?** → "`/feature docs/specs/NNN_<name>.md`" (or a specific slice file `docs/specs/NNN_<name>/MMM_<slice>.md` for sliced specs)
+   - **All tasks have specs + issues?** → "Planning is complete: every task is an issue with a spec, ready to be implemented. This toolkit has no one-command 'run the whole roadmap' pipeline — implement issue by issue, or use the `superpowers` plugin's `subagent-driven-development` / `executing-plans` skills to work through several tasks."
+   - **Start one phase?** → "Run `/issues docs/roadmap/NNN_<phase-name>.md`, then implement that phase's issues one at a time."
+   - **Single task?** → "In Claude Code, hand the issue and its spec to the `feature-dev` plugin: `/feature-dev:feature-dev implement issue #<N> per docs/specs/NNN_<name>.md`" (or a specific slice file `docs/specs/NNN_<name>/MMM_<slice>.md` for sliced specs)

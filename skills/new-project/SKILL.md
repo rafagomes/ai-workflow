@@ -49,7 +49,7 @@ docs/adr/
 docs/rfc/
 ```
 
-**Note:** Skills are installed globally at `~/.claude/skills/`. Do NOT create project-level skill copies — they'd duplicate and drift from the global versions. The global skills (`/architecture`, `/tdd`, `/security`, `/adr`, `/rfc`, `/spec`, `/roadmap`, `/feature`, `/fix`, `/review`, `/autopilot`) are already available. For stack-aware code review, install Anthropic's official `code-review` skill from `claude-code-plugins`. Only create project-level agents and settings.
+**Note:** Skills are installed globally at `~/.claude/skills/`. Do NOT create project-level skill copies — they'd duplicate and drift from the global versions. The global skills (`/architecture`, `/tdd`, `/security`, `/adr`, `/rfc`, `/spec`, `/roadmap`, `/issues`) are already available. Implementation, debugging and PR review come from the `feature-dev`, `superpowers` and `pr-review-toolkit` plugins (`claude-plugins-official` marketplace), not from this toolkit. For stack-aware code review, install Anthropic's official `code-review` skill from `claude-code-plugins`. Only create project-level agents and settings.
 
 ### 4. Create CLAUDE.md
 
@@ -144,4 +144,5 @@ Tell the user what was created and suggest next steps:
 5. `/tdd` — define testing strategy, dev environment, CI/CD
 6. `/security` — define the threat model (if applicable)
 7. `/spec <first-feature>` — write your first feature spec
-8. `/feature docs/specs/<first-feature>.md` — implement it
+8. `/issues docs/specs/<first-feature>.md` — file the GitHub issue
+9. `/feature-dev:feature-dev implement issue #<N> per docs/specs/<first-feature>.md` — implement it (`feature-dev` plugin)

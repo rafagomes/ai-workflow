@@ -1,6 +1,6 @@
 ---
 name: spec
-description: "Create a feature implementation spec at docs/specs/NNN_<feature>.md (prefix mirrors the roadmap phase) — scope, approach, affected files, verification. Use when the user says 'spec out feature X', 'write the implementation plan for Y', 'turn this idea into a spec', 'document how we'll build this', or needs a doc the /feature skill can execute from later."
+description: "Create a feature implementation spec at docs/specs/NNN_<feature>.md (prefix mirrors the roadmap phase) — scope, approach, affected files, verification. Use when the user says 'spec out feature X', 'write the implementation plan for Y', 'turn this idea into a spec', 'document how we'll build this', or needs a doc an implementer (human or agent) can execute from later."
 ---
 Create a feature implementation spec for: $ARGUMENTS
 
@@ -154,4 +154,4 @@ Single (≤200 line) spec or sub-spec:
    - No TDD? → "Define testing and dev workflow with `/tdd`"
    - No threat model and there are security concerns? → "Consider `/security`"
    - Spec approved? → "File GitHub issues with `/issues docs/specs/NNN_<name>.md` (or `/issues docs/specs/NNN_<name>/README.md` for a sliced spec). This populates the `Issue` column and unlocks `<type>/<issue-number>-<slug>` branch naming."
-   - Issues filed? → "Ready for `/feature docs/specs/NNN_<name>.md` (single) or `/feature docs/specs/NNN_<name>/MMM_<slice>.md` (one slice at a time)."
+   - Issues filed? → "The issue and its spec are ready to be implemented. In Claude Code, hand both to the `feature-dev` plugin: `/feature-dev:feature-dev implement issue #<N> per docs/specs/NNN_<name>.md` (single) or `... per docs/specs/NNN_<name>/MMM_<slice>.md` (one slice at a time)."

@@ -36,7 +36,9 @@ Assertions are graded with a Python script, not an LLM. That keeps scoring cheap
 
 ## Case study: `/feature` (Apr 2026)
 
-The `/feature` skill implements a feature end-to-end from a spec file. It's the workhorse — it fires dozens of times per week across the team — so small lifts matter.
+> `/feature` has since been retired in favour of the `feature-dev` marketplace plugin (see the README's "Required plugins"). The case study is kept as a worked example of the process.
+
+The `/feature` skill implemented a feature end-to-end from a spec file. It was the workhorse — it fired dozens of times per week across the team — so small lifts mattered.
 
 ### Iteration 1 — does the skill earn its keep?
 
@@ -73,7 +75,7 @@ Based on iter-1 findings:
 
 ### What shipped
 
-v2. See `skills/feature/SKILL.md`. The review step (originally v1's step 7) was kept but compressed — the rate-limiter finding shows it occasionally catches real concurrency bugs that would otherwise ship.
+v2 (`skills/feature/SKILL.md`, now only in git history). The review step (originally v1's step 7) was kept but compressed — the rate-limiter finding shows it occasionally catches real concurrency bugs that would otherwise ship.
 
 ### What didn't
 
@@ -118,7 +120,7 @@ The skill-creator's `aggregate_benchmark.py` expects a specific layout we didn't
 
 Not for every skill change. The cost of benchmarking is real (spawning 8–10 subagents burns tokens), so we reserve it for:
 
-- **Workhorse skills** — `/feature`, `/fix`, `/review`. These fire constantly; regressions compound fast.
+- **Workhorse skills** — `/spec`, `/roadmap`, `/issues`. These fire constantly; regressions compound fast.
 - **Structural rewrites** — any change that drops, adds, or reorders a full step.
 - **Skills under suspicion** — if a skill "feels" slow or inconsistent, benchmark before tuning.
 

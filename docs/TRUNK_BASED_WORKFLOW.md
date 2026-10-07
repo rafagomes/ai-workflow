@@ -81,7 +81,7 @@ main  ────●────●────●────●────�
 
 ## The seven rules
 
-These live in root `CLAUDE.md` → **Trunk-Based Workflow**. Every skill in this toolkit enforces them.
+These live in root `CLAUDE.md` → **Trunk-Based Workflow**. The planning skills in this toolkit are built around them; during implementation they apply as global rules.
 
 1. **One trunk.** `main` only. No `develop`, no `release/*`. If you need to stabilise for a release, use a tag + a feature flag, not a branch.
 
@@ -106,14 +106,17 @@ This toolkit is wired so the trunk-based rules are defaults, not discipline:
 | Skill | What it enforces |
 |-------|------------------|
 | **`/spec`** | If the feature is estimated >200 lines, produces N sub-specs under `docs/specs/<feature>/NNN_<slice>.md` with an index. Each sub-spec has a `## Feature Flag` section. |
-| **`/feature`** | Requires a typed branch (`feat/<slug>`). Runs a slice-size gate (`git diff --stat`) before committing — blocks if >200 lines. Verifies the feature flag wiring from the spec. Implements sliced specs one slice at a time. |
-| **`/fix`** | Requires `fix/<slug>`. Same slice-size gate. |
+| **`/issues`** | One issue per task/slice, labelled `type:<type>`, carrying the spec path, the feature flag, and the `<type>/<issue-number>-<slug>` branch name. |
 | **`/commit`** | One concern per commit. Each commit leaves the tree green. |
-| **`/pr`** | Validates the branch name against the convention. Warns on >200-line diffs. Prints the post-merge cleanup command (branch delete + worktree remove). |
 | **`/roadmap`** | "One task = one PR." Phases are independently mergeable units. |
-| **`/autopilot`** | Executes phases via worktrees — natural fit for parallel, short-lived branches. |
 
-Nothing is configured in `git` itself. The rules live in docs + skill gates + (optionally) GitHub branch protection. Portable, reversible, visible.
+Implementation, PR and review are no longer skills in this toolkit — they are handled by marketplace plugins (`feature-dev`, `superpowers`, `pr-review-toolkit`; see the README's "Required plugins"). Those plugins know nothing about these rules, so the typed branch name, the ≤200-line slice budget, the feature flag wiring and the post-merge cleanup apply through the global `CLAUDE.md`, which is loaded in every session. To measure a slice against the budget, count source lines only:
+
+```bash
+git diff --stat main...HEAD -- . ':(exclude)**/tests/**' ':(exclude)**/*_test.*' ':(exclude)**/*.test.*' ':(exclude)**/test_*'
+```
+
+Nothing is configured in `git` itself. The rules live in docs + the global `CLAUDE.md` + (optionally) GitHub branch protection. Portable, reversible, visible.
 
 ---
 
@@ -130,10 +133,11 @@ git worktree add -b feat/user-avatar-upload ../myrepo-avatar main
 cd ../myrepo-avatar
 
 # 3. Implement, then ship
-/feature docs/specs/user-avatar-upload.md
-# review the diff, then:
+/feature-dev:feature-dev implement docs/specs/user-avatar-upload.md
+# review the diff (review-pr reads uncommitted changes), then commit and open the PR:
+/pr-review-toolkit:review-pr
 /commit
-/pr
+git push && gh pr create
 
 # 4. After merge, clean up
 git checkout main && git pull
@@ -160,8 +164,8 @@ git worktree remove ../myrepo-avatar
 # 2. Implement each slice in its own branch, back to back
 git worktree add -b feat/oauth-provider-config ../myrepo-oauth-1 main
 cd ../myrepo-oauth-1
-/feature docs/specs/oauth-integration/001_provider-config.md
-# review the diff, then `/commit` + `/pr`
+/feature-dev:feature-dev implement docs/specs/oauth-integration/001_provider-config.md
+# `/pr-review-toolkit:review-pr` on the diff, then `/commit` + `git push` + `gh pr create`
 # merge, delete, repeat for 002, 003, 004
 
 # 3. Flip the flag when 004 merges (or on product's timeline)
@@ -172,8 +176,10 @@ Note: slices 002–004 are cut from `main` *after* 001 is merged — never stack
 ### A bug fix
 
 ```bash
-/fix "login fails when password contains ';'"
-# Lands on fix/login-semicolon. Review the diff, then `/commit` + `/pr`.
+git checkout -b fix/login-semicolon
+# Describe the bug: "login fails when password contains ';'" — the superpowers
+# `systematic-debugging` skill finds the root cause before any fix is proposed.
+# `/pr-review-toolkit:review-pr` on the diff, then `/commit` + `git push` + `gh pr create`.
 ```
 
 ### Emergency rollback
@@ -194,7 +200,7 @@ The old Git Flow pattern of "cherry-pick hotfix to master and merge down to deve
 A: Tag `main` at the point you want to release (`git tag v1.4.0`). Deploy from the tag. If you need to patch the release, cherry-pick onto a short-lived `fix/<slug>` branch, re-tag (`v1.4.1`), re-deploy. No long-lived release branch required.
 
 **Q: What if my PR is 350 lines and I can't reasonably split it?**
-A: Almost always, "can't split" means "haven't tried hard enough to slice vertically." But the 200-line target is a warning, not a hard block — `/feature` and `/pr` will flag it, you can override with explicit confirmation. Use the override as a smell: if it fires often, your slicing technique needs work, not the threshold.
+A: Almost always, "can't split" means "haven't tried hard enough to slice vertically." But the 200-line target is a warning, not a hard block — you can go over it with explicit confirmation. Use the override as a smell: if it happens often, your slicing technique needs work, not the threshold.
 
 **Q: We don't have feature flags. Do we need a whole system?**
 A: No. A `const FEATURE_X_ENABLED = false` in a config file is a feature flag. Grow into a proper flag service (LaunchDarkly, Unleash, homegrown) only when you need runtime toggles, percentage rollouts, or per-user targeting. Most teams over-engineer this.
@@ -203,7 +209,7 @@ A: No. A `const FEATURE_X_ENABLED = false` in a config file is a feature flag. G
 A: They flood less than big PRs. Small PRs review in minutes; big PRs bounce between author and reviewer for days. Throughput goes up. Tooling matters too — auto-assign reviewers, require only one approval for small changes, use merge queues.
 
 **Q: How does this work with multiple worktrees at once?**
-A: Perfectly — it's the reason worktrees exist. Each slice gets its own worktree (outside the repo), its own branch, its own Claude session. You can run 3–5 in parallel without context collisions. See `/autopilot` and `/factory` for agent-orchestrated versions.
+A: Perfectly — it's the reason worktrees exist. Each slice gets its own worktree (outside the repo), its own branch, its own Claude session. You can run 3–5 in parallel without context collisions. For agent-orchestrated versions, see the `superpowers` plugin's `subagent-driven-development` and `dispatching-parallel-agents` skills.
 
 **Q: Isn't "commit to main" dangerous?**
 A: No one commits to main. Trunk-based = PRs to main. The trunk is protected by branch-protection rules (require PR, passing CI, linear history). The difference from Git Flow isn't "less safety" — it's "safety via gates on one branch, not via isolation on five."

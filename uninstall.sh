@@ -58,13 +58,9 @@ FILES=(
     "agents/security-reviewer.md"
     "agents/architecture-reviewer.md"
     "commands/sec-review.md"
-    "skills/feature/SKILL.md"
-    "skills/fix/SKILL.md"
     "skills/spec/SKILL.md"
-    "skills/review/SKILL.md"
     "skills/new-project/SKILL.md"
     "skills/prd/SKILL.md"
-    "skills/autopilot/SKILL.md"
     "skills/roadmap/SKILL.md"
     "skills/architecture/SKILL.md"
     "skills/tdd/SKILL.md"
@@ -72,10 +68,8 @@ FILES=(
     "skills/adr/SKILL.md"
     "skills/rfc/SKILL.md"
     "skills/commit/SKILL.md"
-    "skills/pr/SKILL.md"
     "skills/design/SKILL.md"
     "skills/verify-design/SKILL.md"
-    "skills/factory/SKILL.md"
     "skills/issues/SKILL.md"
     "reviews/go.md"
     "reviews/rust.md"
@@ -85,6 +79,26 @@ FILES=(
 
 for f in "${FILES[@]}"; do
     unlink_if_symlink "$CLAUDE_DIR/$f"
+done
+
+# Retired skills — no longer in the repo or installed by install.sh (replaced
+# by marketplace plugins). Kept here so an install made before the removal
+# still gets its now-dangling symlinks cleaned up by uninstall / `aiwf reinstall`.
+# Only dangling links are removed: a live link under one of these names is a
+# skill from somewhere else. A dangling one is removed wherever it pointed.
+RETIRED_SKILLS=(
+    "skills/feature/SKILL.md"
+    "skills/fix/SKILL.md"
+    "skills/review/SKILL.md"
+    "skills/autopilot/SKILL.md"
+    "skills/factory/SKILL.md"
+    "skills/pr/SKILL.md"
+)
+for f in "${RETIRED_SKILLS[@]}"; do
+    if [ -L "$CLAUDE_DIR/$f" ] && [ ! -e "$CLAUDE_DIR/$f" ]; then
+        unlink_if_symlink "$CLAUDE_DIR/$f"
+        rmdir "$(dirname "$CLAUDE_DIR/$f")" 2>/dev/null || true
+    fi
 done
 
 # Extras (opt-in in install.sh via --extra). Always cleaned up on uninstall

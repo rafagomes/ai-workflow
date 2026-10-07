@@ -80,6 +80,12 @@ else
 fi
 
 # 2. One rule per skill ---------------------------------------------------------
+# Remove stale skill rules first, so a skill that was removed from the repo
+# does not linger as a rule from a previous install.
+for old in "$CURSOR_RULES_DIR"/aiwf-skill-*.mdc; do
+    [ -f "$old" ] && rm "$old"
+done
+
 for skill_file in "$REPO_DIR"/skills/*/SKILL.md; do
     [ -f "$skill_file" ] || continue
 

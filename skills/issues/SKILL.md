@@ -1,6 +1,6 @@
 ---
 name: issues
-description: "File GitHub milestones + issues for a roadmap, a phase, or a spec — one milestone per phase, one issue per task/slice — using the trunk-based patterns from /spec, /roadmap, and /feature. Use when the user says 'create the GitHub issues', 'file the issues for this roadmap', 'open issues for this spec', 'make the milestones', or points at docs/roadmap/*.md or docs/specs/*.md and asks to hand them to GitHub."
+description: "File GitHub milestones + issues for a roadmap, a phase, or a spec — one milestone per phase, one issue per task/slice — using the trunk-based patterns from /spec and /roadmap. Use when the user says 'create the GitHub issues', 'file the issues for this roadmap', 'open issues for this spec', 'make the milestones', or points at docs/roadmap/*.md or docs/specs/*.md and asks to hand them to GitHub."
 ---
 File GitHub milestones and issues for: $ARGUMENTS
 
@@ -13,7 +13,7 @@ File GitHub milestones and issues for: $ARGUMENTS
 - **Labels per issue** — `type:<type>`, `complexity:<low|med|high>`, `mvp` or `post-mvp` (if derivable), and `needs-spec` / `spec-ready` / `blocked` as appropriate.
 - **Issue body** — spec link, file list, dependencies, verification command, feature flag, acceptance criteria pulled from the spec.
 
-After filing, `/issues` writes the issue numbers back into the source `Issue:` / `Issues:` columns so `/feature` can read them when building branch names.
+After filing, `/issues` writes the issue numbers back into the source `Issue:` / `Issues:` columns so whoever implements the task can read them when building branch names.
 
 ## Parse arguments
 
@@ -249,6 +249,6 @@ If a row was updated in place (not newly filed), leave the `Issue:` column alone
 1. Print a final summary: N milestones created, M issues created, K updated, list the URLs.
 2. Remind the user of the horizon: which phases were filed, which stayed in the roadmap doc, and when to re-run to advance the window.
 3. Suggest the next step based on what's now in place:
-   - **Current phase filed?** → "Run `/feature docs/specs/NNN_<name>.md` (or a slice file `docs/specs/NNN_<name>/MMM_<slice>.md`) to implement one task, or `/autopilot docs/roadmap/NNN_<phase>.md` to run the phase end-to-end."
+   - **Current phase filed?** → "Each issue now carries its spec and is ready to be implemented. In Claude Code, hand one to the `feature-dev` plugin: `/feature-dev:feature-dev implement issue #<N> per docs/specs/NNN_<name>.md` (or a slice file `docs/specs/NNN_<name>/MMM_<slice>.md`). There is no one-command 'run the phase end-to-end' pipeline in this toolkit; for several tasks in one session, see the `superpowers` plugin's `subagent-driven-development` / `executing-plans` skills."
    - **Mid-phase check-in?** → "When you're ~halfway through the current phase, re-run `/issues docs/roadmap/README.md` to file the next phase and keep a two-phase buffer ahead."
    - **Finished a phase?** → "Mark the phase `Completed` in the roadmap index's Status column, then re-run `/issues docs/roadmap/README.md` — it'll advance the window to the next unstarted phase."

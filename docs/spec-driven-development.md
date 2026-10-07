@@ -27,8 +27,9 @@ graph TD
     SPEC["/spec<br/>Feature Specs"]
     ROAD["/roadmap<br/>Task Breakdown"]
     DESIGN["/design + /verify-design<br/>UI design in Paper"]
-    IMPL["/feature · /autopilot · /factory<br/>Implementation"]
-    REV["/review or code-review (Anthropic)<br/>Review"]
+    ISSUES["/issues<br/>GitHub milestones + issues"]
+    IMPL["feature-dev · superpowers (plugins)<br/>Implementation"]
+    REV["pr-review-toolkit (plugin)<br/>or code-review (Anthropic)<br/>Review"]
 
     PRD --> ARCH
     PRD --> TDD
@@ -38,7 +39,8 @@ graph TD
     TDD --> ROAD
     SEC --> ROAD
     ROAD --> SPEC
-    SPEC --> IMPL
+    SPEC --> ISSUES
+    ISSUES --> IMPL
     DESIGN --> IMPL
     IMPL --> REV
 
@@ -48,6 +50,7 @@ graph TD
     style SEC fill:#7b68ee,stroke:#5a4fcf,color:#fff
     style SPEC fill:#2ecc71,stroke:#27ae60,color:#fff
     style ROAD fill:#f39c12,stroke:#d68910,color:#fff
+    style ISSUES fill:#2ecc71,stroke:#27ae60,color:#fff
     style DESIGN fill:#9b59b6,stroke:#7d3c98,color:#fff
     style IMPL fill:#e74c3c,stroke:#c0392b,color:#fff
     style REV fill:#95a5a6,stroke:#7f8c8d,color:#fff
@@ -61,8 +64,9 @@ graph TD
 | **How (security)** | Threat Model | Trust boundaries, attack surface, defenses | `/security` |
 | **When** | Roadmap | Phased tasks from design docs, with dependencies and parallelism | `/roadmap` |
 | **What (feature)** | Feature Spec | Detailed implementation spec per task in the roadmap | `/spec` |
+| **Hand-off** | GitHub issue | One issue per task/slice, carrying its spec path — ready to be implemented | `/issues` |
 
-The roadmap is generated from the design docs (PRD, architecture, TDD, threat model) — it breaks the project into phased tasks before detailed specs exist. Then each task gets a detailed feature spec (`/spec`) that references the architecture, technical design, and threat model. This means implementation agents have full context without needing everything repeated.
+The roadmap is generated from the design docs (PRD, architecture, TDD, threat model) — it breaks the project into phased tasks before detailed specs exist. Then each task gets a detailed feature spec (`/spec`) that references the architecture, technical design, and threat model. This means implementation agents have full context without needing everything repeated. Finally `/issues` files each task as a GitHub issue that links its spec — the planning chain ends there, with an issue ready to be implemented. Implementation and review are handled by marketplace plugins, not by this toolkit's skills.
 
 ---
 
@@ -96,7 +100,7 @@ The interview goes deep on the hard parts: edge cases, failure modes, security b
 
 ## From Spec to Code: The Implementation Pipeline
 
-Once specs exist, implementation follows a deterministic pipeline. This is where the cost of spec-writing pays off — every downstream step has clear inputs.
+Once an issue and its spec exist, implementation is handed to Claude Code plugins from the `claude-plugins-official` marketplace (`feature-dev`, `superpowers`, `pr-review-toolkit` — see the README's "Required plugins"). This is where the cost of spec-writing pays off — every downstream step has clear inputs.
 
 ### Single Feature Flow
 
@@ -115,86 +119,51 @@ flowchart LR
     style COMMIT fill:#4a90d9,stroke:#2c5f8a,color:#fff
 ```
 
-### Automated Roadmap Execution (/autopilot)
+For one issue, the `feature-dev` plugin drives the read → plan → implement → review part of this as a guided, interactive workflow. It is not spec-file driven by itself, so give it the issue and its spec path:
 
-For projects with multiple features, `/autopilot` orchestrates the entire roadmap:
-
-```mermaid
-flowchart TB
-    ORCH["Orchestrator<br/>(reads roadmap, stays thin)"]
-
-    subgraph Phase1["Phase 1"]
-        T1["Worktree Agent<br/>Task 1"]
-    end
-
-    subgraph Phase2["Phase 2 (parallel tasks)"]
-        T2A["Worktree Agent<br/>Task 2a"]
-        T2B["Worktree Agent<br/>Task 2b"]
-    end
-
-    subgraph Phase3["Phase 3"]
-        T3["Worktree Agent<br/>Task 3"]
-    end
-
-    ORCH --> Phase1
-    Phase1 -->|"Checkpoint:<br/>review + merge PRs"| Phase2
-    Phase2 -->|"Checkpoint:<br/>review + merge PRs"| Phase3
-
-    T1 --> PR1["PR #1"]
-    T2A --> PR2["PR #2"]
-    T2B --> PR3["PR #3"]
-    T3 --> PR4["PR #4"]
-
-    style ORCH fill:#f39c12,stroke:#d68910,color:#fff
-    style T1 fill:#4a90d9,stroke:#2c5f8a,color:#fff
-    style T2A fill:#4a90d9,stroke:#2c5f8a,color:#fff
-    style T2B fill:#4a90d9,stroke:#2c5f8a,color:#fff
-    style T3 fill:#4a90d9,stroke:#2c5f8a,color:#fff
-    style PR1 fill:#2ecc71,stroke:#27ae60,color:#fff
-    style PR2 fill:#2ecc71,stroke:#27ae60,color:#fff
-    style PR3 fill:#2ecc71,stroke:#27ae60,color:#fff
-    style PR4 fill:#2ecc71,stroke:#27ae60,color:#fff
+```
+/feature-dev:feature-dev implement issue #42 per docs/specs/003_auth.md
 ```
 
-Each worktree agent independently:
-1. Reads its assigned spec
-2. Implements with tests at the right layers
-3. Runs quality checks
-4. Spawns security + architecture reviewers
-5. Fixes HIGH severity findings
-6. Commits, pushes, creates PR
+It explores the codebase, asks clarifying questions, proposes approaches, implements after your approval, and runs its own quality review. Run a fresh reviewer on the diff (`/pr-review-toolkit:review-pr`, which reads uncommitted changes), then commit (`/commit`), push and open the PR (`gh pr create`). For a bug, the `superpowers` plugin's `systematic-debugging` skill replaces the spec step with a root-cause investigation.
 
-The orchestrator never touches code — it only tracks progress and pauses between phases for human review.
+### Executing Several Tasks
+
+This toolkit no longer has a one-command pipeline that runs a whole roadmap or milestone and merges it. For several tasks, the `superpowers` plugin provides the building blocks:
+
+- **`subagent-driven-development`** — a fresh implementer subagent per task, a review (spec compliance + code quality) after each, and a whole-branch review at the end.
+- **`executing-plans`** — the same plan executed inline in one session, with one fresh-context review at the end.
+- **`dispatching-parallel-agents`** — one agent per independent problem, run concurrently.
+
+Each task still maps to one issue, one short-lived branch and one PR, and merging stays a human decision unless you say otherwise for that piece of work.
 
 ---
 
 ## The Review Layer
 
-Every implementation goes through a stack-aware review before merge. `/review`, `/feature`, `/fix`, and `/factory` all follow the same two-path pattern: prefer Anthropic's official `code-review` skill if installed, otherwise fall back to `/sec-review` plus the `architecture-reviewer` agent. In both paths, the matching language guide from `reviews/` (`go.md`, `rust.md`, `typescript.md`, `python.md`) is loaded — passed as stack criteria to Anthropic's skill, or to the fallback agents directly.
+Every implementation goes through a review by a fresh reviewer before merge — never the session that wrote the code. In Claude Code, `/pr-review-toolkit:review-pr` runs specialized review agents over the diff (general code review, test coverage, silent failures, comments, type design, simplification) and aggregates the findings as critical / important / suggestions. For stack-aware review, use Anthropic's official `code-review` skill and hand it the matching language guide from `reviews/` (`go.md`, `rust.md`, `typescript.md`, `python.md`) as stack criteria. Security-sensitive changes also get `/sec-review`; the `architecture-reviewer` agent is available for structural changes.
 
 ```mermaid
 flowchart TB
-    TRIGGER["/review · /feature · /fix · /factory"]
-    DETECT["Detect stack →<br/>load matching<br/>reviews/*.md guide"]
+    TRIGGER["Branch with an implementation"]
+    PRT["/pr-review-toolkit:review-pr<br/>(specialized review agents)"]
+    CR["Anthropic code-review skill<br/>(+ reviews/*.md as stack criteria)"]
+    SEC["/sec-review<br/>(security-sensitive changes)"]
+    ARCH["architecture-reviewer agent<br/>(structural changes)"]
 
-    TRIGGER --> DETECT
-    DETECT --> CHOICE{"Anthropic<br/>code-review skill<br/>installed?"}
+    TRIGGER --> PRT
+    TRIGGER --> CR
+    TRIGGER --> SEC
+    TRIGGER --> ARCH
 
-    CHOICE -->|Yes — preferred| CR["Anthropic code-review skill<br/>(stack criteria passed in)"]
-    CHOICE -->|No — fallback| FB["In-repo fallback<br/>(runs in parallel)"]
-
-    FB --> SEC["/sec-review<br/>(Opus)"]
-    FB --> ARCH["architecture-reviewer agent<br/>(Sonnet)"]
-
-    CR --> REPORT["Consolidated findings<br/>PASS / REVIEW / FAIL"]
+    PRT --> REPORT["Findings reported<br/>human decides the merge"]
+    CR --> REPORT
     SEC --> REPORT
     ARCH --> REPORT
 
     style TRIGGER fill:#f39c12,stroke:#d68910,color:#fff
-    style DETECT fill:#95a5a6,stroke:#7f8c8d,color:#fff
-    style CHOICE fill:#f5f5f5,stroke:#999,color:#333
+    style PRT fill:#2ecc71,stroke:#27ae60,color:#fff
     style CR fill:#2ecc71,stroke:#27ae60,color:#fff
-    style FB fill:#9b59b6,stroke:#7d3c98,color:#fff
     style SEC fill:#e74c3c,stroke:#c0392b,color:#fff
     style ARCH fill:#4a90d9,stroke:#2c5f8a,color:#fff
     style REPORT fill:#2ecc71,stroke:#27ae60,color:#fff
@@ -215,14 +184,12 @@ flowchart LR
         O1["Design & Planning"]
         O2["Implementation"]
         O3["Security Review"]
-        O4["Orchestration"]
     end
 
     subgraph SONNET["Sonnet (efficient execution)"]
         direction TB
         S1["Architecture Review"]
         S2["Stack-Specific Review"]
-        S3["Worktree Agents<br/>(spec execution)"]
     end
 
     style OPUS fill:#e74c3c,stroke:#c0392b,color:#fff
@@ -234,10 +201,8 @@ flowchart LR
 | Spec writing, interviews, design | **Opus** | Creative reasoning, catching edge cases |
 | Implementation (main session) | **Opus** | Complex design decisions |
 | Security review | **Opus** | False negatives are catastrophic |
-| Orchestration (`/autopilot`) | **Opus** | Dependency logic, phase management |
 | Architecture review | **Sonnet** | Structured criteria, checklist-driven |
 | Stack-specific review | **Sonnet** | Matching against loaded review guides |
-| Worktree agents (`/autopilot`) | **Sonnet** | Following detailed specs, not designing |
 
 The principle: **Opus for decisions, Sonnet for execution.** Security is the exception — even though it follows structured criteria, the cost of missing a vulnerability far outweighs the savings from a cheaper model.
 
@@ -295,15 +260,15 @@ Not every project needs every step. Here's a decision guide:
 
 | Scenario | What to use |
 |----------|-------------|
-| Quick fix or small feature on existing project | `/spec` + `/feature` |
-| New feature touching multiple components | `/spec` + `/feature` (with Plan Mode) |
-| Greenfield project | `/new-project` + `/prd` + `/architecture` + `/tdd` + `/security` + `/spec` + `/feature` |
-| Full roadmap with many features | All of the above + `/roadmap` + `/autopilot` |
+| Quick fix or small feature on existing project | `/spec` + `/issues`, then `/feature-dev:feature-dev` |
+| New feature touching multiple components | `/spec` + `/issues`, then `/feature-dev:feature-dev` |
+| Greenfield project | `/new-project` + `/prd` + `/architecture` + `/tdd` + `/security` + `/roadmap` + `/spec` + `/issues`, then `/feature-dev:feature-dev` per issue |
+| Full roadmap with many features | All of the above; work through the issues with `superpowers`' `subagent-driven-development` or `executing-plans` (no one-command roadmap pipeline) |
 | Architectural decision | `/adr` |
 | Significant change needing team input | `/rfc` |
-| Bug fix | `/fix` (creates regression test, no spec needed) |
+| Bug fix | `superpowers`' `systematic-debugging` skill (root cause first, no spec needed) |
 | Security audit | `/sec-review` (standalone, 4 parallel agents on Opus) |
-| Code review | Anthropic's `code-review` skill (standalone) or `/review` (full PR review with spec compliance) |
+| Code review | `/pr-review-toolkit:review-pr` (multi-agent PR review) or Anthropic's `code-review` skill (stack-aware) |
 
 ---
 

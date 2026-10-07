@@ -143,8 +143,8 @@ fi
         printf '\n%s\n\n' "---"
     done
 
-    # Language review guides — appendix loaded on demand by /review, /feature, /fix
-    # (or passed as stack criteria to Anthropic's official code-review skill).
+    # Language review guides — appendix to hand to a reviewer as stack criteria
+    # (e.g. Anthropic's official code-review skill).
     printf '# Language Review Guides\n\n'
     for guide_file in "$REPO_DIR"/reviews/*.md; do
         [ -f "$guide_file" ] || continue

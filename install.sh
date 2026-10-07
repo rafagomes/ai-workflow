@@ -218,10 +218,32 @@ link "agents/architecture-reviewer.md"   "agents/architecture-reviewer.md"
 link "commands/sec-review.md"   "commands/sec-review.md"
 
 # Skills
-for skill in feature fix spec review new-project prd autopilot roadmap architecture tdd security adr rfc commit pr design verify-design factory issues; do
+for skill in spec new-project prd roadmap architecture tdd security adr rfc commit design verify-design issues; do
     mkdir -p "$CLAUDE_DIR/skills/$skill"
     link "skills/$skill/SKILL.md" "skills/$skill/SKILL.md"
 done
+
+# Retired skills — removed from the toolkit in favour of marketplace plugins
+# (see README "Required plugins"). An existing install still has symlinks for
+# them, now pointing at files that no longer exist, and `aiwf update` only
+# re-runs this script — so drop them here. Only dangling links to a path of that
+# shape are touched; a live skill of the same name from anywhere else is left
+# alone. Dangling, not "points into $SCRIPT_DIR": the clone may be reached by a
+# different spelling of its path than the one the link was made with.
+if [ ${#FILTERS[@]} -eq 0 ]; then
+    for skill in feature fix review autopilot factory pr; do
+        stale="$CLAUDE_DIR/skills/$skill/SKILL.md"
+        if [ -L "$stale" ] && [ ! -e "$stale" ]; then
+            case "$(readlink "$stale")" in
+                */skills/"$skill"/SKILL.md) ;;
+                *) continue ;;
+            esac
+            rm "$stale"
+            rmdir "$CLAUDE_DIR/skills/$skill" 2>/dev/null || true
+            info "Removed retired skill link: $stale"
+        fi
+    done
+fi
 
 # Extras (opt-in via --extra): personal add-ons that sit outside the core
 # workflow. Multi-file skills are symlinked as whole directories so supporting

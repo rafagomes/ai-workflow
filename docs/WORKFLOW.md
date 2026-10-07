@@ -309,21 +309,24 @@ When done:
 5. Create a PR with summary and test plan
 ```
 
-### The /feature Skill Pattern
+### The feature-dev Plugin Pattern
 
-Use `/feature` to parallelize within a single session using subagents:
+Use the `feature-dev` plugin (`claude-plugins-official` marketplace) to implement one issue within a single session using subagents. It is not spec-file driven by itself — give it the issue and its spec path as the argument:
 
 ```
-/feature docs/specs/feature_x.md
+/feature-dev:feature-dev implement issue #42 per docs/specs/feature_x.md
 ```
 
-This triggers the skill which:
-1. Reads the spec
-2. Plans implementation
-3. Implements with tests
-4. Spawns security-reviewer subagent
-5. Spawns architecture-reviewer subagent
-6. Commits, pushes, creates PR
+This triggers a guided, interactive workflow which:
+1. Confirms what needs to be built (discovery)
+2. Launches code-explorer subagents to map the relevant code
+3. Asks clarifying questions and waits for your answers
+4. Launches code-architect subagents and asks which approach you prefer
+5. Implements, after your explicit approval
+6. Launches code-reviewer subagents and asks what to fix
+7. Summarizes what was built
+
+It does not commit, push, or open a PR — run `/pr-review-toolkit:review-pr` on the uncommitted diff, then `/commit`, `git push` and `gh pr create`.
 
 ### Fan-Out for Large Migrations
 
@@ -468,7 +471,7 @@ repos:
 
 **Always trigger a fresh reviewer.** This is an obligation, not just the prohibition it's often stated as. "Don't review your own code" is true but insufficient — the point is that a reviewer with clean context is *actively spawned* every time an implementation lands on a branch, whether that's a subagent that did not write the code or a genuine fresh session. Never skip it because the diff is small, test-only, or looks obviously fine.
 
-Merging stays a separate decision. Default: report the review findings and stop — the human merges. Merge autonomously only when they've said so for that specific piece of work ("autonomous", "merge if it passes", `/autopilot`, `/factory`); the authorization is per-task and never carries to the next one.
+Merging stays a separate decision. Default: report the review findings and stop — the human merges. Merge autonomously only when they've said so for that specific piece of work ("autonomous", "merge if it passes"); the authorization is per-task and never carries to the next one.
 
 ```
 Session A (Writer):   Implements the feature in worktree
@@ -660,7 +663,7 @@ claude -p "Audit this codebase for OWASP Top 10 vulnerabilities" \
 3. **Monthly**, prune CLAUDE.md — remove rules Claude already follows naturally
 4. **Quarterly**, review hooks and skills — are they still needed? Are new ones warranted?
 
-For workhorse skills (those that fire across many tasks), don't tune on vibes — benchmark. See [SKILL_QUALITY.md](./SKILL_QUALITY.md) for the A/B process, graded assertions, and a worked example of iterating `/feature` through two rounds.
+For workhorse skills (those that fire across many tasks), don't tune on vibes — benchmark. See [SKILL_QUALITY.md](./SKILL_QUALITY.md) for the A/B process, graded assertions, and a worked example of iterating the (since retired) `/feature` skill through two rounds.
 
 ### Metrics to Track
 
@@ -687,17 +690,18 @@ With AI generating more code, review becomes the bottleneck. Address this by:
 ```
 # Daily workflow
 claude --worktree feature-x          # Start isolated work
-/feature docs/specs/feature_x.md     # Implement from spec
-/fix <issue-url-or-stack-trace>      # Or: diagnose and fix a bug (no spec needed)
+/issues docs/specs/feature_x.md      # File the GitHub issue for the spec
+/feature-dev:feature-dev implement issue #N per docs/specs/feature_x.md   # Implement (feature-dev plugin)
+# Or, for a bug (no spec needed): describe it — superpowers' systematic-debugging skill finds the root cause first
 /design auth                         # UI features: mock in Paper first
 /verify-design owner                 # Then diff running UI vs Paper refs, fix in place
 /sec-review                          # Security check
+/pr-review-toolkit:review-pr         # Fresh reviewer agents on the uncommitted diff (pr-review-toolkit plugin)
 /commit                              # Stage + commit by logical concern
-/pr                                  # Push + open PR (add --draft for WIP)
+git push && gh pr create             # Open PR (add --draft for WIP)
 
-# End-to-end roadmap delivery
-/autopilot                           # Execute roadmap phase by phase (you approve between phases)
-/factory                             # Or: generate specs, open issues, ship ≤5 PRs in parallel
+# Several tasks in one session (superpowers plugin skills — no one-command roadmap pipeline)
+# subagent-driven-development / executing-plans / dispatching-parallel-agents
 
 # Parallel work
 claude --worktree task-a --tmux      # Terminal 1

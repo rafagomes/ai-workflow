@@ -48,7 +48,7 @@ Write to `docs/TECHNICAL_DESIGN_DOCUMENT.md`:
 
 ## Testing Strategy
 
-[This section is the source of truth that all other skills (/feature, /fix, /roadmap, /autopilot) reference when deciding what tests to write.]
+[This section is the source of truth that the planning skills (/spec, /roadmap) and whoever implements a task reference when deciding what tests to write.]
 
 ### Test Layers
 

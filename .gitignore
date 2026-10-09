@@ -2,3 +2,5 @@
 .claude/
 /skills/feature-workspace/
 /settings.json
+/mods/*/.claude-plugin/types/
+/mods/*/tsconfig.json

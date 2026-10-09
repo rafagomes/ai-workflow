@@ -811,6 +811,9 @@ ai-workflow/
   aiwf                                   # Toolkit manager CLI
   install.sh / uninstall.sh              # Claude Code symlink installer
   bootstrap.sh                           # Multi-platform one-liner installer
+  .claude-plugin/marketplace.json        # Plugin marketplace listing mods/ (installed via `claude plugin install`, not install.sh)
+  mods/
+    english-coach/                       # Grammar + fluency feedback on every prompt (see README "Mods")
   adapters/
     cursor/
       install.sh                         # Generates ~/.cursor/rules/aiwf-*.mdc

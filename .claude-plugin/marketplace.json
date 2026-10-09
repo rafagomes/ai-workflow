@@ -1,0 +1,14 @@
+{
+  "name": "ai-workflow",
+  "description": "Claude Code mods from the ai-workflow toolkit",
+  "owner": {
+    "name": "Rafa Gomes"
+  },
+  "plugins": [
+    {
+      "name": "english-coach",
+      "source": "./mods/english-coach",
+      "description": "Checks the grammar and fluency of each prompt you type, in parallel, and shows corrections above the prompt"
+    }
+  ]
+}

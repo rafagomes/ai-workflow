@@ -262,13 +262,15 @@ Skills are multi-step workflows invoked as slash commands inside Claude Code.
 | Mod | What it does |
 |-----|--------------|
 | `english-coach` | Checks the grammar and fluency of every prompt you type, in a parallel Haiku call so the turn never waits. Corrections appear as colour-coded bullets (`[grammar]`/`[fluency]`, ~~original~~ → **improved**, reason) in a dismissable band above the prompt, plus a "Natural:" rewrite when a message has two or more issues. A bulleted copy goes to the transcript as history; the main model never sees it. Skips slash commands, `!` shell lines, pastes, code fences and prompts under four words. |
+| `toolbar` | Adds a **Toolbar** button at the right of the hint row under the prompt (also `/toolbar`). It opens a card above the prompt to pick the model, the 1M-context variant and the effort (applied with one `/model` and one `/effort` when the card closes), to open the project root in VS Code, and to switch **clean view**. Clean view hides the work (tool rows, the spinner line, the turn-duration line, background-task notifications that completed) and shows a step tracker of the task list instead: a short heading, `Step N of M` with a progress bar, and one row per task (done, working with a moving bar, next). Of the model's text only the answer to your last prompt stays drawn, plus the latest message of a turn a background task started. The steps come from the model's task tools (`TaskCreate`/`TaskUpdate`/`TodoWrite`), so while clean view is on the mod adds a short section to the system prompt telling the model that only its task list and final message are seen, and to keep both complete. |
 
-Each checked prompt is one extra Haiku request on your account (up to 3,000 characters of your text); `/plugin disable english-coach` turns it off for a profile.
+Each checked prompt is one extra Haiku request on your account (up to 3,000 characters of your text); `/plugin disable english-coach` turns it off for a profile. `toolbar` makes one too, only while clean view is on: each prompt you send (typed at the terminal, or through Remote Control or the SDK; up to 4,000 characters) goes to Haiku for the band's 3-to-6-word heading. A turn started by a background task, a peer or a schedule is never sent. Its VS Code button runs `open -a "Visual Studio Code"`, so it is macOS-only.
 
 From GitHub, at the prompt of any session (Claude Code 2.1.275+; older versions: `/plugin marketplace add rafagomes/ai-workflow`, then `/plugin install english-coach@ai-workflow`):
 
 ```
 /plugin install english-coach --marketplace rafagomes/ai-workflow
+/plugin install toolbar --marketplace rafagomes/ai-workflow
 ```
 
 From a local clone, once per profile (repeat with `CLAUDE_CONFIG_DIR="$HOME/.claude-work"` in front for each extra profile):
@@ -276,6 +278,7 @@ From a local clone, once per profile (repeat with `CLAUDE_CONFIG_DIR="$HOME/.cla
 ```bash
 claude plugin marketplace add ~/path/to/ai-workflow
 claude plugin install english-coach@ai-workflow
+claude plugin install toolbar@ai-workflow
 ```
 
 A local-folder marketplace is read straight from the checkout, so after `aiwf update` or an edit, `/reload-plugins` picks up the change in every profile with no reinstall. Profiles that share the repo's `settings.json` also share its `enabledPlugins`.
@@ -367,7 +370,8 @@ ai-workflow/
 ├── .claude-plugin/
 │   └── marketplace.json       # Makes the repo a plugin marketplace for mods/
 ├── mods/
-│   └── english-coach/         # Grammar + fluency feedback on every prompt
+│   ├── english-coach/         # Grammar + fluency feedback on every prompt
+│   └── toolbar/               # Model/effort card, VS Code button, clean view
 ├── adapters/
 │   ├── cursor/
 │   │   ├── install.sh         # Generates ~/.cursor/rules/aiwf-*.mdc

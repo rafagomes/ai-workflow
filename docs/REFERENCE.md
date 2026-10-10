@@ -814,6 +814,7 @@ ai-workflow/
   .claude-plugin/marketplace.json        # Plugin marketplace listing mods/ (installed via `claude plugin install`, not install.sh)
   mods/
     english-coach/                       # Grammar + fluency feedback on every prompt (see README "Mods")
+    toolbar/                             # Model/effort card, VS Code button and clean view (see README "Mods")
   adapters/
     cursor/
       install.sh                         # Generates ~/.cursor/rules/aiwf-*.mdc

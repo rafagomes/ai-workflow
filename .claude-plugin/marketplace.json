@@ -9,6 +9,11 @@
       "name": "english-coach",
       "source": "./mods/english-coach",
       "description": "Checks the grammar and fluency of each prompt you type, in parallel, and shows corrections above the prompt"
+    },
+    {
+      "name": "toolbar",
+      "source": "./mods/toolbar",
+      "description": "A Toolbar button under the prompt: pick the model and effort, open the project in VS Code, and switch clean view, which hides the work and shows a step tracker of the task list"
     }
   ]
 }

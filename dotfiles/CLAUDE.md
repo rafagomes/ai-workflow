@@ -8,7 +8,7 @@
 ## Workflow
 - Spec first, code second: read the spec before implementing. A bug fix, or a chore that adds no behaviour, does not need a spec written for it.
 - Commits are conventional (`feat:`, `fix:`, `refactor:`, `chore:`, `test:`, `docs:`, `perf:`, `build:`, `ci:`, `security:`), split by logical concern, and each leaves the codebase working.
-- Security-sensitive changes — auth, crypto, input parsing, secrets, permissions, anything that runs automatically — get the built-in `/security-review` before the PR is marked ready. Its `HIGH` and `MED` findings block the PR and are fixed like the reviewer's (Review, below); `LOW` findings are fixed or listed.
+- Security-sensitive changes — a trust boundary, auth, crypto, input parsing, secrets, permissions, dependencies, anything that runs automatically — get the built-in `/security-review` before the PR is marked ready. Its `HIGH` and `MED` findings block the PR and are fixed within the same two rounds as the reviewer's (Review, below), not two more; `LOW` findings are fixed or listed.
 
 ## Review
 - **Every PR that changes behaviour is reviewed by a fresh context before it is ready** — the `wf:reviewer` agent (on Opus), which `/wf:pr` dispatches, or a fresh session. The context that wrote the code never reviews it. Do this unprompted; a small or test-only diff is not a reason to skip it.
@@ -43,12 +43,12 @@
 
 ## Toolkit
 - The workflow skills come from the `wf` plugin (`/wf:spec`, `/wf:feature`, `/wf:fix`, `/wf:commit`, `/wf:pr`, …); the usual path is spec → feature → commit → PR.
-- **Implementing a spec goes through the `wf` workflow by default:** `/wf:feature` for one task, `/wf:autopilot` for a phase or roadmap. Do not hand-roll a different loop.
-- **Model roles:** orchestrator and reviewer on Opus, writers on Sonnet.
-- A session that has to orchestrate by hand (`/wf:autopilot` runs only when I type it, or the work does not fit it) follows the same dispatch rules:
+- **Implementing a spec goes through the `wf` workflow by default:** `/wf:feature` for one task; for a phase or roadmap, `/wf:autopilot`, which only I can start — you cannot invoke it, so tell me to type it. Do not invent a different loop.
+- **Model roles when a session dispatches writers:** orchestrator and reviewer on Opus, dispatched writers on Sonnet. `/wf:feature` run directly in a session writes on that session's model; do not spawn a writer for it.
+- If I ask you to deliver several tasks without typing it, or the work does not fit it, orchestrate by hand under the same dispatch rules. That never grants merge authority: stop with the PRs open unless I said to merge.
   - **Writer:** a `general-purpose` agent with `model: "sonnet"`, in an isolated worktree, one task per writer.
   - **Reviewer:** `wf:reviewer` (Opus), fresh context, one per PR (see Review).
-  - **Security gate:** a fresh agent on the orchestrator's model running `/security-review`, when the change touches a trust boundary, auth, crypto, input parsing, secrets, permissions, dependencies, or anything that runs automatically. `HIGH` and `MED` findings block the merge.
-  - **Fix loop:** resume the same writer with the `HIGH` and `MED` findings, at most two rounds.
+  - **Security gate:** a fresh agent on Opus running `/security-review`, when the change touches a trust boundary, auth, crypto, input parsing, secrets, permissions, dependencies, or anything that runs automatically. `HIGH` and `MED` findings block the merge.
+  - **Fix loop:** resume the same writer with the `HIGH` and `MED` findings from the reviewer and the security gate, then re-run both on the new commits; at most two rounds per PR in total. Not converged: the PR stays a draft and comes to me.
   - **Merge:** only when I authorised it (see Review).
 - To review someone else's branch or PR, use the built-in `/code-review`; for a security pass, the built-in `/security-review`.

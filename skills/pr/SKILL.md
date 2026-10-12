@@ -112,8 +112,8 @@ $ARGUMENTS may contain:
    At most 2 fix cycles. If cycle 2 still returns `FIX_REQUIRED`, record `Review: NEEDS_HUMAN — <count> HIGH/MED unresolved after 2 cycles` (add `Spec ambiguity suspected at <spec-path>` if one finding category recurred), leave the PR a draft, and stop looping. `PASS_WITH_NITS` and `NEEDS_HUMAN` are this skill's labels, not reviewer verdicts. Commits that change behaviour after a `PASS` need a fresh review before merge.
 
 10. **Ready transition.**
-    - If the diff touches auth, crypto, input parsing, secrets or permissions, run the built-in `/security-review` first (fresh context). A HIGH or MED finding keeps the PR a draft: fix it as in step 9, within the same 2-cycle budget, and have the reviewer look at the fix commits, since they change behaviour. List LOW findings in the report.
-    - `PASS` or `PASS_WITH_NITS` and no `--draft`: `gh pr ready <url>`.
+    - If the diff touches a trust boundary, auth, crypto, input parsing, secrets, permissions, dependencies, or anything that runs automatically, run the built-in `/security-review` first (fresh context). A HIGH or MED finding keeps the PR a draft (with `--no-review`, convert it back with `gh pr ready --undo <url>`): fix it, commit and push, then re-dispatch the reviewer (step 8) and re-run `/security-review` on the new commits. These fixes draw on the same budget as step 9 — 2 fix cycles per PR in total, not 2 more. With no cycle left, or a HIGH/MED security finding still open after the last one, record `Review: NEEDS_HUMAN — security finding unresolved`, leave the PR a draft and stop. List LOW findings in the report.
+    - `PASS` or `PASS_WITH_NITS`, no open HIGH/MED security finding, and no `--draft`: `gh pr ready <url>`.
     - `--draft`: leave it a draft and report the passing verdict.
     - `NEEDS_HUMAN`: leave it a draft and report the unresolved items.
     - `--no-review`: nothing to flip; step 7 set the final state.

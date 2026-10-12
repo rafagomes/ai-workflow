@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- The global `CLAUDE.md` makes the `wf` workflow the default path for implementing a spec (`/feature` for one task, `/autopilot` for a phase or roadmap) and states the dispatch rules a session follows when it has to orchestrate by hand: writers on Sonnet in isolated worktrees, `wf:reviewer` on Opus once per PR, the security gate on the orchestrator's model with `HIGH` and `MED` blocking, the same writer resumed for at most two fix rounds, and a merge only when authorised. `/autopilot` runs only when typed, so a session that rebuilt its loop by hand had no rules in context and ran every writer on the orchestrator's model.
 - `/roadmap` asks, in its interview, whether to file GitHub milestones and issues when the roadmap is settled. On Yes it hands off to `/issues` at the end, and only when the roadmap and spec files in the working tree are identical to the trunk branch on the remote; otherwise (uncommitted, unpushed, on a branch or in an open PR) it prints the command to run after the merge. `/issues` keeps its own dry-run and confirmation, and stays the way to file issues for an existing roadmap, phase or spec. The question is skipped when there is no GitHub remote, and a run that cannot ask the user files nothing.
 
 ### Changed

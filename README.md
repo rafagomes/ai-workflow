@@ -165,7 +165,7 @@ It symlinks two files into `~/.claude/`. A file already there is moved to `<name
 
 | Installed as | What it is |
 |---|---|
-| `~/.claude/CLAUDE.md` | Conventions applied to every project: verify before claiming done, conventional commits split by concern, spec first, a fresh reviewer for every branch, human-gated merges, the trunk rules |
+| `~/.claude/CLAUDE.md` | Conventions applied to every project: verify before claiming done, conventional commits split by concern, spec first and implemented through the `wf` workflow, a fresh reviewer for every branch, human-gated merges, the trunk rules |
 | `~/.claude/settings.json` | Your settings, seeded from `settings.example.json` on first run and never tracked. The seed holds a desktop-notification hook and a plugin list (`wf` plus a handful of official plugins) with this repo registered as a marketplace. It sets no permission mode and no model — read it before the first run |
 
 `./uninstall.sh` removes the symlinks that point into this clone and restores the backups.

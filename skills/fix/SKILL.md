@@ -23,7 +23,7 @@ Run `git fetch origin`, and if the tree is dirty with unrelated changes, say so 
 
 3. **Pick the test layer** as in `/wf:feature` step 2 (`docs/ARCHITECTURE.md` Testing Strategy, else inferred from the project): unit for pure logic, integration at a boundary (API, database, service interaction), e2e only if a critical user flow broke and had no e2e coverage.
 
-4. **Fix.** Write the regression test first and watch it fail for the right reason. Then make the minimal change that fixes the root cause, without refactoring surrounding code, and confirm the test passes. If the bug is in auth, crypto, input parsing or secrets, note that it needs `/security-review` before the PR.
+4. **Fix.** Write the regression test first and watch it fail for the right reason. Then make the minimal change that fixes the root cause, without refactoring surrounding code, and confirm the test passes. If the bug is at a trust boundary or in auth, crypto, input parsing, secrets, permissions, dependencies, or anything that runs automatically, note that it needs `/security-review` before the PR.
 
 5. **Quality checks.** Run the project's lint, typecheck and the full test suite (so a regression elsewhere shows up); report each in one line (command, result) and paste output only for a failure.
 

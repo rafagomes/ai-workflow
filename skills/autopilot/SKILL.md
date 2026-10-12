@@ -10,6 +10,8 @@ Run the delivery pipeline for: $ARGUMENTS
 
 You are the **orchestrator** of **develop → review → fix → merge** for every task in scope. You dispatch writer agents in worktrees and the `wf:reviewer` agent on each PR, triage verdicts, merge, update status, and loop. You do not implement, review, or read diffs yourself; you keep only compact results (`branch`, `PR`, `verdict`). Typing `/wf:autopilot` grants merge authority for this run only.
 
+Model roles: the orchestrator (this session), the reviewer and the security gate run on Opus, the writers you dispatch on Sonnet. A dispatch that drops the writer's `model: "sonnet"` or the gate's `model: "opus"`, or overrides the reviewer's model, breaks that split.
+
 ## Scope
 
 - **`/wf:autopilot docs/roadmap/README.md`** (or no path, if that file exists) — every phase in the roadmap, in order.
@@ -90,11 +92,11 @@ Tasks in one wave run concurrently — dispatch all their writers in a single me
 
 **a. Develop.** Dispatch a writer: `Agent(subagent_type: "general-purpose", model: "sonnet", isolation: "worktree", prompt: <writer template below>)` — writers follow a detailed spec, they don't design. Record its branch and PR URL. If a writer fails outright, do not retry on your own — record it and report it.
 
-**b. Review.** When the PR is open, dispatch the `wf:reviewer` agent on it with `isolation: "worktree"` (so it can run the checks) and a prompt with one field per line: `Base: <base>`, `Branch: <branch>`, `Spec: <path>`, `Verify: <commands>`. A verdict whose findings say the diff was empty is a dispatch error, not a pass — fix the prompt and re-dispatch once; if the second verdict is the same, mark the task `NEEDS_HUMAN`. Remove the reviewer's worktree once you have its verdict. Never review in your own context and never let the writer review itself. The verdict comes back as `VERDICT` / `CHECKS` / `FINDINGS` / `SUMMARY`. Post it on the PR as a comment. `PASS` with LOW findings still merges: put the LOW list in that comment and in the phase table's Notes column.
+**b. Review.** When the PR is open, dispatch the `wf:reviewer` agent on it with `isolation: "worktree"` (so it can run the checks), no `model` override (its definition sets Opus), and a prompt with one field per line: `Base: <base>`, `Branch: <branch>`, `Spec: <path>`, `Verify: <commands>`. A verdict whose findings say the diff was empty is a dispatch error, not a pass — fix the prompt and re-dispatch once; if the second verdict is the same, mark the task `NEEDS_HUMAN`. Remove the reviewer's worktree once you have its verdict. Never review in your own context and never let the writer review itself. The verdict comes back as `VERDICT` / `CHECKS` / `FINDINGS` / `SUMMARY`. Post it on the PR as a comment. `PASS` with LOW findings still merges: put the LOW list in that comment and in the phase table's Notes column.
 
-**c. Security gate, when warranted.** If the task touches a trust boundary, auth, crypto, input parsing, secrets, or dependencies, dispatch one more fresh agent with `isolation: "worktree"` to run `/security-review`, and take back only its HIGH findings. The branch is checked out in the writer's worktree, so tell it to `git fetch origin <branch> && git checkout --detach origin/<branch>` rather than check the branch out. A HIGH finding blocks the merge: send it to the writer as in 5d (same 2-cycle budget), then redo 5b and 5c on the new commits. Skip it for plainly non-security work.
+**c. Security gate, when warranted.** If the task touches a trust boundary, auth, crypto, input parsing, secrets, permissions, dependencies, or anything that runs automatically, dispatch one more fresh agent with `isolation: "worktree"` and `model: "opus"` (stated, so a run typed in a Sonnet session does not put the gate on Sonnet) to run `/security-review`, and take back its HIGH and MED findings; LOW findings go in the PR comment and the Notes column, as in 5b. The branch is checked out in the writer's worktree, so tell it to `git fetch origin <branch> && git checkout --detach origin/<branch>` rather than check the branch out. A HIGH or MED finding blocks the merge: send it to the writer as in 5d, then redo 5b and 5c on the new commits. Reviewer and security fixes share one budget of 2 fix cycles per PR, not 2 each; with none left, mark the task `NEEDS_HUMAN`. Skip it for plainly non-security work.
 
-**d. Fix loop, bounded.** On `FIX_REQUIRED`, resume the **writer** with `SendMessage` and only the reviewer's HIGH/MED items — it already holds the spec and files; a fresh fixer would pay to load them again. The writer fixes, re-verifies and pushes; re-dispatch the reviewer with `Previous findings: <list>`. **Maximum 2 fix cycles.** A finding that survives both usually means the spec is ambiguous: mark the task `NEEDS_HUMAN` (an autopilot status, not a reviewer verdict), leave the PR open with the reviewer's comment, and carry on with independent tasks.
+**d. Fix loop, bounded.** On `FIX_REQUIRED`, resume the **writer** with `SendMessage` and only the HIGH/MED items (the reviewer's and the security gate's) — it already holds the spec and files; a fresh fixer would pay to load them again. The writer fixes, re-verifies and pushes; re-dispatch the reviewer with `Previous findings: <list>`, and run 5c again on the new commits if the gate applies. **Maximum 2 fix cycles per PR, counting both.** A finding that survives both usually means the spec is ambiguous: mark the task `NEEDS_HUMAN` (an autopilot status, not a reviewer verdict), leave the PR open with the reviewer's comment, and carry on with independent tasks.
 
 **e. Merge** (autonomous mode only). On `PASS` with the security gate clear:
 
@@ -153,10 +155,9 @@ You may be resumed with review findings to fix — keep your context.
 
 ## Stop conditions
 
-Halt and surface, in either mode:
+Halt and surface, in either mode (the first item parks one task rather than halting the run):
 
-- A check failure or reviewer finding that survives 2 fix cycles.
+- A check failure, a reviewer finding, or a HIGH or MED security finding left after the 2 fix cycles: park the task as `NEEDS_HUMAN` with its PR open and carry on with the tasks that do not depend on it (5d); halt the run when nothing else can proceed.
 - A merge conflict that is not mechanically resolvable.
 - A spec that is missing, contradictory, or contradicts the architecture.
-- A HIGH security finding that cannot be safely resolved.
 - Anything destructive or irreversible outside the roadmap's scope — a lossy data migration, deleting user data, force-pushing shared history, publishing a release. These need explicit sign-off regardless of mode.

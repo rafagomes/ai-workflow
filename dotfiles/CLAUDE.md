@@ -1,5 +1,9 @@
 # Global Defaults
 
+## Language
+- **Everything you create is in English**: docs, code, comments, identifiers, commit messages, PR titles and bodies, issues, config, and any other written artifact. This holds whatever language I am speaking, until I explicitly say otherwise for that piece of work.
+- Chat replies follow the language of my message: reply in the language I wrote in, and in English when it is unclear.
+
 ## Verification
 - Run the project's lint, typecheck and tests before saying a change is done, and fix what fails. Report each check in one line (command, result); paste output only for a failure.
 - If the project has no such checks, say so and say what you verified instead. Never report a check you did not run.

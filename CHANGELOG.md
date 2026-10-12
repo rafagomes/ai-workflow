@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `/roadmap` asks, in its interview, whether to file GitHub milestones and issues when the roadmap is settled. On Yes it hands off to `/issues` at the end, and only when the roadmap and spec files in the working tree are identical to the trunk branch on the remote; otherwise (uncommitted, unpushed, on a branch or in an open PR) it prints the command to run after the merge. `/issues` keeps its own dry-run and confirmation, and stays the way to file issues for an existing roadmap, phase or spec. The question is skipped when there is no GitHub remote, and a run that cannot ask the user files nothing.
 
+### Changed
+- **The `reviewer` agent runs on Opus** (`model: opus`; it was `sonnet`). The standard is now written down in `/autopilot`: orchestrator and reviewer on Opus, writers on Sonnet. `/autopilot` dispatches the reviewer without a `model` override. A Sonnet reviewer had passed PRs in which a separate security audit then found issues that mattered.
+
 ### Fixed
 - `build` and `ci` are valid task types everywhere a type is listed (`/roadmap`, `/spec`, `/feature`, `/issues`, `/pr`, and the branch names in the global `CLAUDE.md` and the trunk guide), matching the commit types that already allowed them. `/issues` creates `type:build` and `type:ci` labels; before, a roadmap task of either type had no label colour to create.
 - `/issues` says how to write a dependency on a whole phase (`Needs all of <milestone title>.`) and one that is not a task (`Also needs: <text>.`), in the issue body template and in the drift check of a re-run, instead of leaving it to the run.

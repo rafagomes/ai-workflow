@@ -227,7 +227,7 @@ Skills used to be symlinked into `~/.claude/skills/` and invoked by bare name (`
 
 <br/>
 
-`wf:reviewer` reviews a branch diff against its spec: spec compliance, correctness, security at boundaries, test quality, convention drift. It is read-only, runs the project's checks itself rather than trusting the writer's output, and returns `PASS` or `FIX_REQUIRED` with `HIGH` / `MED` / `LOW` findings. `/wf:pr` and `/wf:autopilot` dispatch it.
+`wf:reviewer` reviews a branch diff against its spec: spec compliance, correctness, security at boundaries, test quality, convention drift. It is read-only, runs the project's checks itself rather than trusting the writer's output, and returns `PASS` or `FIX_REQUIRED` with `HIGH` / `MED` / `LOW` findings. `/wf:pr` and `/wf:autopilot` dispatch it. It runs on Opus, as the orchestrating session should; the writers `/wf:autopilot` dispatches run on Sonnet.
 
 </details>
 

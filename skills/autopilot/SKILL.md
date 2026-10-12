@@ -10,6 +10,8 @@ Run the delivery pipeline for: $ARGUMENTS
 
 You are the **orchestrator** of **develop → review → fix → merge** for every task in scope. You dispatch writer agents in worktrees and the `wf:reviewer` agent on each PR, triage verdicts, merge, update status, and loop. You do not implement, review, or read diffs yourself; you keep only compact results (`branch`, `PR`, `verdict`). Typing `/wf:autopilot` grants merge authority for this run only.
 
+Model roles: the orchestrator (this session) and the reviewer run on Opus, writers on Sonnet. A dispatch that drops the writer's `model: "sonnet"`, or overrides the reviewer's model, breaks that split.
+
 ## Scope
 
 - **`/wf:autopilot docs/roadmap/README.md`** (or no path, if that file exists) — every phase in the roadmap, in order.
@@ -90,7 +92,7 @@ Tasks in one wave run concurrently — dispatch all their writers in a single me
 
 **a. Develop.** Dispatch a writer: `Agent(subagent_type: "general-purpose", model: "sonnet", isolation: "worktree", prompt: <writer template below>)` — writers follow a detailed spec, they don't design. Record its branch and PR URL. If a writer fails outright, do not retry on your own — record it and report it.
 
-**b. Review.** When the PR is open, dispatch the `wf:reviewer` agent on it with `isolation: "worktree"` (so it can run the checks) and a prompt with one field per line: `Base: <base>`, `Branch: <branch>`, `Spec: <path>`, `Verify: <commands>`. A verdict whose findings say the diff was empty is a dispatch error, not a pass — fix the prompt and re-dispatch once; if the second verdict is the same, mark the task `NEEDS_HUMAN`. Remove the reviewer's worktree once you have its verdict. Never review in your own context and never let the writer review itself. The verdict comes back as `VERDICT` / `CHECKS` / `FINDINGS` / `SUMMARY`. Post it on the PR as a comment. `PASS` with LOW findings still merges: put the LOW list in that comment and in the phase table's Notes column.
+**b. Review.** When the PR is open, dispatch the `wf:reviewer` agent on it with `isolation: "worktree"` (so it can run the checks), no `model` override (its definition sets Opus), and a prompt with one field per line: `Base: <base>`, `Branch: <branch>`, `Spec: <path>`, `Verify: <commands>`. A verdict whose findings say the diff was empty is a dispatch error, not a pass — fix the prompt and re-dispatch once; if the second verdict is the same, mark the task `NEEDS_HUMAN`. Remove the reviewer's worktree once you have its verdict. Never review in your own context and never let the writer review itself. The verdict comes back as `VERDICT` / `CHECKS` / `FINDINGS` / `SUMMARY`. Post it on the PR as a comment. `PASS` with LOW findings still merges: put the LOW list in that comment and in the phase table's Notes column.
 
 **c. Security gate, when warranted.** If the task touches a trust boundary, auth, crypto, input parsing, secrets, or dependencies, dispatch one more fresh agent with `isolation: "worktree"` to run `/security-review`, and take back only its HIGH findings. The branch is checked out in the writer's worktree, so tell it to `git fetch origin <branch> && git checkout --detach origin/<branch>` rather than check the branch out. A HIGH finding blocks the merge: send it to the writer as in 5d (same 2-cycle budget), then redo 5b and 5c on the new commits. Skip it for plainly non-security work.
 

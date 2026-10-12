@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **The `reviewer` agent runs on Opus** (`model: opus`; it was `sonnet`). The standard is now written down in `/autopilot`: orchestrator and reviewer on Opus, writers on Sonnet. `/autopilot` dispatches the reviewer without a `model` override. A Sonnet reviewer had passed PRs in which a separate security audit then found issues that mattered.
+- **The security gate takes back `HIGH` and `MED` findings**, not only `HIGH`. In `/autopilot` both block the merge and go to the writer under the same two-cycle fix loop; in `/pr` both keep the PR a draft; the global `CLAUDE.md` says the same. `LOW` findings are listed. The findings the gate had been dropping were `MED` ones worth blocking on (a resource-exhaustion flood, a test script able to delete the repository). `/autopilot` also runs the gate for changes to permissions and to anything that runs automatically, as the global `CLAUDE.md` already required, and on the orchestrator's model.
 
 ### Fixed
 - `build` and `ci` are valid task types everywhere a type is listed (`/roadmap`, `/spec`, `/feature`, `/issues`, `/pr`, and the branch names in the global `CLAUDE.md` and the trunk guide), matching the commit types that already allowed them. `/issues` creates `type:build` and `type:ci` labels; before, a roadmap task of either type had no label colour to create.

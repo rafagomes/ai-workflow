@@ -8,7 +8,7 @@
 ## Workflow
 - Spec first, code second: read the spec before implementing. A bug fix, or a chore that adds no behaviour, does not need a spec written for it.
 - Commits are conventional (`feat:`, `fix:`, `refactor:`, `chore:`, `test:`, `docs:`, `perf:`, `build:`, `ci:`, `security:`), split by logical concern, and each leaves the codebase working.
-- Security-sensitive changes — auth, crypto, input parsing, secrets, permissions, anything that runs automatically — get the built-in `/security-review` before the PR is marked ready.
+- Security-sensitive changes — auth, crypto, input parsing, secrets, permissions, anything that runs automatically — get the built-in `/security-review` before the PR is marked ready. Its `HIGH` and `MED` findings block the PR and are fixed like the reviewer's (Review, below); `LOW` findings are fixed or listed.
 
 ## Review
 - **Every PR that changes behaviour is reviewed by a fresh context before it is ready** — the `wf:reviewer` agent, which `/wf:pr` dispatches, or a fresh session. The context that wrote the code never reviews it. Do this unprompted; a small or test-only diff is not a reason to skip it.

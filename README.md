@@ -95,7 +95,7 @@ flowchart LR
 1. Shows you the title and body, then pushes the branch and opens the PR as a **draft**.
 2. Dispatches the `wf:reviewer` agent, which has never seen the code. It checks spec compliance, correctness, security at boundaries, test quality and convention drift, and runs the project's checks itself.
 3. Fixes `HIGH` and `MED` findings and asks for a re-review — at most two cycles.
-4. Marks the PR **ready** on `PASS`; `LOW` nits are listed but never block. If the loop does not converge, the PR stays a draft and you get the findings.
+4. Marks the PR **ready** on `PASS`; `LOW` nits are listed but never block. A security-sensitive diff gets the built-in `/security-review` first, and its `HIGH` and `MED` findings block the same way. If the loop does not converge, the PR stays a draft and you get the findings.
 
 ## Skills
 

@@ -45,7 +45,7 @@
 - The workflow skills come from the `wf` plugin (`/wf:spec`, `/wf:feature`, `/wf:fix`, `/wf:commit`, `/wf:pr`, …); the usual path is spec → feature → commit → PR.
 - **Implementing a spec goes through the `wf` workflow by default:** `/wf:feature` for one task; for a phase or roadmap, `/wf:autopilot`, which only I can start — you cannot invoke it, so tell me to type it. Do not invent a different loop.
 - **Model roles when a session dispatches writers:** orchestrator and reviewer on Opus, dispatched writers on Sonnet. `/wf:feature` run directly in a session writes on that session's model; do not spawn a writer for it.
-- If I ask you to deliver several tasks without typing it, or the work does not fit it, orchestrate by hand under the same dispatch rules. That never grants merge authority: stop with the PRs open unless I said to merge.
+- If I ask you to deliver several tasks and do not type `/wf:autopilot` after you have pointed me to it, or the work does not fit `/wf:autopilot`, orchestrate by hand under the same dispatch rules. That never grants merge authority: stop with the PRs open unless I said to merge.
   - **Writer:** a `general-purpose` agent with `model: "sonnet"`, in an isolated worktree, one task per writer.
   - **Reviewer:** `wf:reviewer` (Opus), fresh context, one per PR (see Review).
   - **Security gate:** a fresh agent on Opus running `/security-review`, when the change touches a trust boundary, auth, crypto, input parsing, secrets, permissions, dependencies, or anything that runs automatically. `HIGH` and `MED` findings block the merge.

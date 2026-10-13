@@ -14,7 +14,7 @@ The dispatch prompt gives you some or all of:
 - **Branch** — the branch to review, when it is not the one already checked out. It may be checked out in another worktree, so do not `git checkout <branch>`: run `git fetch origin <base> <branch> && git checkout --detach origin/<branch>` and diff against `origin/<base>`.
 - **Spec** — path to the spec this change implements, or `none`/absent.
 - **Verify** — the project's lint / typecheck / test commands.
-- **Previous findings** — present only on a re-review; see "Re-review" below.
+- **Previous findings** and **Reviewed at** (the sha the previous review read) — present only on a re-review; see "Re-review" below.
 
 Read, in this order:
 
@@ -46,6 +46,7 @@ Return exactly this and nothing else:
 
 ```
 VERDICT: PASS | FIX_REQUIRED
+REVIEWED_AT: <output of `git rev-parse HEAD` for the commit you read>
 CHECKS: <each Verify command you ran and its result, or "not run — none given">
 FINDINGS:
 - [HIGH] path/to/file:line — what is wrong — what to do about it
@@ -58,4 +59,10 @@ SUMMARY: <one sentence>
 
 ## Re-review
 
-When the prompt lists previous findings, confirm each one is resolved, then look for anything the fix introduced. Review the new diff; do not re-litigate what you already passed.
+When the prompt lists previous findings, this is a narrow check, not a second full review:
+
+1. Confirm each previous finding is resolved. Where the project's suite can test the fix, it has a test that would fail without it; a testable fix with no such test is a MED. A fix to docs, a prompt or config has none: check that the writer said how it was verified.
+2. Read the fix commits for anything they broke, following them into the callers of what they changed. The fix commits are `git diff <sha>..HEAD`, with `<sha>` from `Reviewed at`. First run `git merge-base --is-ancestor <sha> HEAD` and `git log --merges --oneline <sha>..HEAD`: if the sha is not an ancestor (the branch was rebased) or the range contains a merge of the base, read the branch's own commits one by one instead (`git log --no-merges <sha>..HEAD --not origin/<base>`, or after a rebase the commits of `origin/<base>..HEAD` that answer the findings) and say so in `CHECKS`. If you cannot tell the fix commits apart, do a full review and say so in `CHECKS`. An empty range, or no `Reviewed at` line, is a dispatch error: report it as a HIGH finding.
+3. Run the **Verify** commands.
+
+The base diff (`origin/<base>...HEAD`) serves here only as the non-empty guard; do not re-read code the fix commits neither touched nor affected, and do not re-litigate what was already passed. The line is drawn by cause, not by file. A defect the fix commits introduced or broke keeps its severity and blocks, wherever it shows. A defect that was already there at `<sha>` and the first review missed is reported as HIGH when it is one; anything less goes in as `[LOW] outside the fix (MED): …` (naming the severity it would have had) and does not change the verdict.

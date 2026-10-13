@@ -107,7 +107,7 @@ $ARGUMENTS may contain:
 9. **Process the verdict and fix.** Record the verdict as a PR comment (`gh pr comment <url> --body …`), never as `gh pr review --approve`.
    - `PASS`, no findings: `Review: PASS`; go to step 10.
    - `PASS` with only LOW findings: `Review: PASS_WITH_NITS`; list the LOW items in the final report; go to step 10.
-   - `FIX_REQUIRED`: fix exactly the listed HIGH/MED items, re-run the project's lint, typecheck and tests, commit the fixes (conventional message), `git push`, and re-dispatch the reviewer with an extra line `Previous findings: <list>`.
+   - `FIX_REQUIRED`: fix exactly the listed HIGH/MED items and nothing else (LOW items are listed, never fixed in a fix cycle), each with a test that fails without the fix. Re-run the project's lint, typecheck and the whole test suite, commit the fixes (conventional message), `git push`, and re-dispatch the reviewer with two extra lines, `Previous findings: <list>` and `Reviewed at: <the sha it reviewed>`. That is a narrow re-review: it covers the fix commits, and a new finding outside them blocks only when HIGH.
 
    At most 2 fix cycles. If cycle 2 still returns `FIX_REQUIRED`, record `Review: NEEDS_HUMAN — <count> HIGH/MED unresolved after 2 cycles` (add `Spec ambiguity suspected at <spec-path>` if one finding category recurred), leave the PR a draft, and stop looping. `PASS_WITH_NITS` and `NEEDS_HUMAN` are this skill's labels, not reviewer verdicts. Commits that change behaviour after a `PASS` need a fresh review before merge.
 

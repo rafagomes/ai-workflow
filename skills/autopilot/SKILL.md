@@ -96,7 +96,7 @@ Tasks in one wave run concurrently — dispatch all their writers in a single me
 
 **c. Security gate, when warranted.** If the task touches a trust boundary, auth, crypto, input parsing, secrets, permissions, dependencies, or anything that runs automatically, dispatch one more fresh agent with `isolation: "worktree"` and `model: "opus"` (stated, so a run typed in a Sonnet session does not put the gate on Sonnet) to run `/security-review`, and take back its HIGH and MED findings; LOW findings go in the PR comment and the Notes column, as in 5b. The branch is checked out in the writer's worktree, so tell it to `git fetch origin <branch> && git checkout --detach origin/<branch>` rather than check the branch out. A HIGH or MED finding blocks the merge: send it to the writer as in 5d, then redo 5b and 5c on the new commits. Reviewer and security fixes share one budget of 2 fix cycles per PR, not 2 each; with none left, mark the task `NEEDS_HUMAN`. Skip it for plainly non-security work.
 
-**d. Fix loop, bounded.** On `FIX_REQUIRED`, resume the **writer** with `SendMessage` and only the HIGH/MED items (the reviewer's and the security gate's) — it already holds the spec and files; a fresh fixer would pay to load them again. The writer fixes, re-verifies and pushes; re-dispatch the reviewer with `Previous findings: <list>`, and run 5c again on the new commits if the gate applies. **Maximum 2 fix cycles per PR, counting both.** A finding that survives both usually means the spec is ambiguous: mark the task `NEEDS_HUMAN` (an autopilot status, not a reviewer verdict), leave the PR open with the reviewer's comment, and carry on with independent tasks.
+**d. Fix loop, bounded.** On `FIX_REQUIRED`, resume the **writer** with `SendMessage` and only the HIGH/MED items (the reviewer's and the security gate's) — it already holds the spec and files; a fresh fixer would pay to load them again. Never send LOW items: a LOW fix is new code the re-review is not asked to read, so LOW findings are listed, not fixed. The writer fixes, adds a test that fails without each fix, re-runs the whole suite and pushes; re-dispatch the reviewer with `Previous findings: <list>` and `Reviewed at: <the sha it reviewed>`, which makes it a narrow re-review (the fix commits only; a new finding outside them blocks only when HIGH), and run 5c again on the new commits if the gate applies. **Maximum 2 fix cycles per PR, counting both.** A finding that survives both usually means the spec is ambiguous: mark the task `NEEDS_HUMAN` (an autopilot status, not a reviewer verdict), leave the PR open with the reviewer's comment, and carry on with independent tasks.
 
 **e. Merge** (autonomous mode only). On `PASS` with the security gate clear:
 
@@ -144,13 +144,13 @@ Base: origin/<base> (run `git fetch origin` first)   Branch: <the branch name fr
 ## Instructions
 1. Confirm you are in your worktree and on the branch above before changing anything.
 2. Implement exactly what the spec says. Record any judgement call in the PR body.
-3. Write tests at the layers above, covering every verification criterion in the spec.
+3. Write tests at the layers above, covering every verification criterion in the spec. Vary the test data in whatever the code depends on (sizes, lengths, order, scale); uniform fixtures hide bugs. Before the PR, remove or break the behaviour each new test covers and see the test fail; a test that still passes is rewritten.
 4. Run lint, typecheck and tests; fix until all pass. No PR while any of them fails, and never `--no-verify`.
 5. Commit with conventional messages, split by logical concern. Push. Open a PR against <base> (PR title: imperative, no type prefix, under 70 characters) with: summary, spec link, `Closes #<N>` if there is an issue, a security checklist when the change touches a trust boundary, and a test plan listing each verification criterion.
 6. Do not merge, force-push, or touch <base>.
 7. Report: branch, PR URL, the tail of each check, and any blocker.
 
-You may be resumed with review findings to fix — keep your context.
+You may be resumed with review findings to fix — keep your context. Then change only what the findings require, add a test that fails without each fix, and re-run the whole suite before pushing; no other clean-up in that round.
 ```
 
 ## Stop conditions

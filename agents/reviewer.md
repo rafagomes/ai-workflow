@@ -14,7 +14,7 @@ The dispatch prompt gives you some or all of:
 - **Branch** — the branch to review, when it is not the one already checked out. It may be checked out in another worktree, so do not `git checkout <branch>`: run `git fetch origin <base> <branch> && git checkout --detach origin/<branch>` and diff against `origin/<base>`.
 - **Spec** — path to the spec this change implements, or `none`/absent.
 - **Verify** — the project's lint / typecheck / test commands.
-- **Previous findings** — present only on a re-review; see "Re-review" below.
+- **Previous findings** and **Reviewed at** (the sha the previous review read) — present only on a re-review; see "Re-review" below.
 
 Read, in this order:
 
@@ -58,4 +58,10 @@ SUMMARY: <one sentence>
 
 ## Re-review
 
-When the prompt lists previous findings, confirm each one is resolved, then look for anything the fix introduced. Review the new diff; do not re-litigate what you already passed.
+When the prompt lists previous findings, this is a narrow check, not a second full review:
+
+1. Confirm each previous finding is resolved, and that the fix has a test which would fail without it.
+2. Read the commits made since the reviewed one (`Reviewed at: <sha>` in the prompt; `git diff <sha>..HEAD`) for anything the fix broke, including callers of what it changed.
+3. Run the **Verify** commands.
+
+Do not re-read code those commits did not touch, and do not re-litigate what was already passed. If you still notice a defect there, report it as HIGH when it is one; anything less goes in as LOW with the prefix `outside the fix:` and does not change the verdict. Without a `Reviewed at` sha, take the fix commits from `git log` and say so in `CHECKS`.

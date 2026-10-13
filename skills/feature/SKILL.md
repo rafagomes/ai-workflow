@@ -42,7 +42,7 @@ Worktree conventions are in your global `CLAUDE.md` (Trunk-Based Workflow).
 
 3. **Plan if non-trivial.** If the change touches 3+ files or has non-obvious design decisions, use Plan Mode to align before writing code.
 
-4. **Implement with tests, layer by layer.** Unit, then integration, then e2e. Run each layer and fix failures before moving on.
+4. **Implement with tests, layer by layer.** Unit, then integration, then e2e. Run each layer and fix failures before moving on. Vary the test data in whatever the code depends on (sizes, lengths, order, scale); uniform fixtures hide bugs. Before the quality checks, remove or break the behaviour each new test covers and see the test fail; rewrite a test that still passes.
 
 5. **Quality checks.** Run the project's lint, typecheck and tests (commands are in the project's `CLAUDE.md` or Makefile); report each in one line (command, result) and paste output only for a failure.
 

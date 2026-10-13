@@ -12,11 +12,13 @@
 ## Workflow
 - Spec first, code second: read the spec before implementing. A bug fix, or a chore that adds no behaviour, does not need a spec written for it.
 - Commits are conventional (`feat:`, `fix:`, `refactor:`, `chore:`, `test:`, `docs:`, `perf:`, `build:`, `ci:`, `security:`), split by logical concern, and each leaves the codebase working.
-- Security-sensitive changes — a trust boundary, auth, crypto, input parsing, secrets, permissions, dependencies, anything that runs automatically — get the built-in `/security-review` before the PR is marked ready. Its `HIGH` and `MED` findings block the PR and are fixed within the same two rounds as the reviewer's (Review, below), not two more; `LOW` findings are fixed or listed.
+- Security-sensitive changes — a trust boundary, auth, crypto, input parsing, secrets, permissions, dependencies, anything that runs automatically — get the built-in `/security-review` before the PR is marked ready. Its `HIGH` and `MED` findings block the PR and are fixed within the same two rounds as the reviewer's (Review, below), not two more; `LOW` findings are listed.
 
 ## Review
 - **Every PR that changes behaviour is reviewed by a fresh context before it is ready** — the `wf:reviewer` agent (on Opus), which `/wf:pr` dispatches, or a fresh session. The context that wrote the code never reviews it. Do this unprompted; a small or test-only diff is not a reason to skip it.
-- **One reviewer per PR, not per commit.** Fix `HIGH` and `MED` findings and re-review once per round, at most two rounds. `LOW` findings are fixed or listed, and never trigger another round. A PR that has not converged after two rounds stays a draft and comes to me with the findings.
+- **One reviewer per PR, not per commit.** Fix `HIGH` and `MED` findings and re-review once per round, at most two rounds. A PR that has not converged after two rounds stays a draft and comes to me with the findings.
+- **A fix round changes only what the `HIGH` and `MED` findings require.** `LOW` findings are listed in the PR and never fixed in a fix round: a `LOW` fix is new code the next review was not asked to look at, and never triggers another round. Each fix comes with a test that fails without it, and the whole suite runs again before the push.
+- **The first review is the full one; a re-review is narrow.** It confirms each previous finding is resolved and reads the commits made since for what the fix broke. A new finding in code those commits did not touch blocks only when it is `HIGH`; anything less there is listed in the PR for me. When I allow a PR past two rounds, every further check is a re-review of this kind, never a second full review.
 - **What may skip the reviewer:** only a diff that is entirely typo, spelling or formatting fixes in prose, or a changelog entry or project-version bump. Text that instructs an agent — a skill, an agent definition, a `CLAUDE.md`, a prompt — is behaviour and never qualifies; neither does a revert, a file move, or a dependency bump. When unsure, review. State a skipped review in the PR body (`Review: skipped — <reason>`).
 - A PR that changes after a `PASS` is re-reviewed only if the new commits change behaviour.
 - **Merging is my call, not the review's.** After the review, report the findings and stop. Merge on your own only when I said so for that piece of work ("merge it", "merge if it passes", "autonomous", or `/wf:autopilot` without `--supervised`). That authorization covers only the task I gave it for and never carries to the next one.
@@ -40,6 +42,7 @@
 - Keep code as simple as it can be: no unnecessary abstractions, no speculative features, no premature generalization.
 - Validate at system boundaries (user input, external APIs); trust internal code.
 - Tests cover the verification criteria in the spec.
+- A test must be able to fail: before asking for a review, remove or break the behaviour each new test covers and see the test fail. Test data varies whatever the code depends on (sizes, lengths, order, scale); uniform fixtures hide bugs.
 - Prefer changing an existing file to adding a new one, and ask before introducing a parallel doc or config.
 
 ## UI Work
@@ -53,6 +56,6 @@
   - **Writer:** a `general-purpose` agent with `model: "sonnet"`, in an isolated worktree, one task per writer.
   - **Reviewer:** `wf:reviewer` (Opus), fresh context, one per PR (see Review).
   - **Security gate:** a fresh agent on Opus running `/security-review`, when the change touches a trust boundary, auth, crypto, input parsing, secrets, permissions, dependencies, or anything that runs automatically. `HIGH` and `MED` findings block the merge.
-  - **Fix loop:** resume the same writer with the `HIGH` and `MED` findings from the reviewer and the security gate, then re-run both on the new commits; at most two rounds per PR in total. Not converged: the PR stays a draft and comes to me.
+  - **Fix loop:** resume the same writer with only the `HIGH` and `MED` findings from the reviewer and the security gate, then re-run both on the new commits as a narrow re-review (see Review); at most two rounds per PR in total. Not converged: the PR stays a draft and comes to me.
   - **Merge:** only when I authorised it (see Review).
 - To review someone else's branch or PR, use the built-in `/code-review`; for a security pass, the built-in `/security-review`.

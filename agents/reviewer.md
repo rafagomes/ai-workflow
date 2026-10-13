@@ -46,6 +46,7 @@ Return exactly this and nothing else:
 
 ```
 VERDICT: PASS | FIX_REQUIRED
+REVIEWED_AT: <output of `git rev-parse HEAD` for the commit you read>
 CHECKS: <each Verify command you ran and its result, or "not run — none given">
 FINDINGS:
 - [HIGH] path/to/file:line — what is wrong — what to do about it
@@ -60,8 +61,8 @@ SUMMARY: <one sentence>
 
 When the prompt lists previous findings, this is a narrow check, not a second full review:
 
-1. Confirm each previous finding is resolved, and that the fix has a test which would fail without it.
-2. Read the commits made since the reviewed one (`Reviewed at: <sha>` in the prompt; `git diff <sha>..HEAD`) for anything the fix broke, including callers of what it changed.
+1. Confirm each previous finding is resolved. Where the project's suite can test the fix, it has a test that would fail without it; a testable fix with no such test is a MED. A fix to docs, a prompt or config has none: check that the writer said how it was verified.
+2. Read the fix commits for anything they broke, following them into the callers of what they changed. The fix commits are `git diff <sha>..HEAD`, with `<sha>` from `Reviewed at`. First run `git merge-base --is-ancestor <sha> HEAD` and `git log --merges --oneline <sha>..HEAD`: if the sha is not an ancestor (the branch was rebased) or the range contains a merge of the base, read the branch's own commits one by one instead (`git log --no-merges <sha>..HEAD --not origin/<base>`, or after a rebase the commits of `origin/<base>..HEAD` that answer the findings) and say so in `CHECKS`. If you cannot tell the fix commits apart, do a full review and say so in `CHECKS`. An empty range, or no `Reviewed at` line, is a dispatch error: report it as a HIGH finding.
 3. Run the **Verify** commands.
 
-Do not re-read code those commits did not touch, and do not re-litigate what was already passed. If you still notice a defect there, report it as HIGH when it is one; anything less goes in as LOW with the prefix `outside the fix:` and does not change the verdict. Without a `Reviewed at` sha, take the fix commits from `git log` and say so in `CHECKS`.
+The base diff (`origin/<base>...HEAD`) serves here only as the non-empty guard; do not re-read code the fix commits neither touched nor affected, and do not re-litigate what was already passed. The line is drawn by cause, not by file. A defect the fix commits introduced or broke keeps its severity and blocks, wherever it shows. A defect that was already there at `<sha>` and the first review missed is reported as HIGH when it is one; anything less goes in as `[LOW] outside the fix (MED): …` (naming the severity it would have had) and does not change the verdict.

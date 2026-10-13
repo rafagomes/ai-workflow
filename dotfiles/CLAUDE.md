@@ -56,6 +56,6 @@
   - **Writer:** a `general-purpose` agent with `model: "sonnet"`, in an isolated worktree, one task per writer.
   - **Reviewer:** `wf:reviewer` (Opus), fresh context, one per PR (see Review).
   - **Security gate:** a fresh agent on Opus running `/security-review`, when the change touches a trust boundary, auth, crypto, input parsing, secrets, permissions, dependencies, or anything that runs automatically. `HIGH` and `MED` findings block the merge.
-  - **Fix loop:** resume the same writer with only the `HIGH` and `MED` findings from the reviewer and the security gate, then re-run both on the new commits, the reviewer as a narrow re-review (see Review); at most two rounds per PR in total. Not converged: the PR stays a draft and comes to me.
+  - **Fix loop:** resume the same writer with only the `HIGH` and `MED` findings from the reviewer and the security gate, then re-run both on the new commits, the reviewer as a narrow re-review (see Review): its prompt carries `Previous findings: <list>` and `Reviewed at: <sha>`, the `REVIEWED_AT` sha its latest verdict returned; at most two rounds per PR in total. Not converged: the PR stays a draft and comes to me.
   - **Merge:** only when I authorised it (see Review).
 - To review someone else's branch or PR, use the built-in `/code-review`; for a security pass, the built-in `/security-review`.

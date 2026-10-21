@@ -125,6 +125,18 @@ When a phase finishes — or, as `## Phase N status`, when `--supervised` stops 
 
 Autonomous mode proceeds to the next phase; `--supervised` stops here and advances on `continue` as described under Modes. At the end of the run, print one table of what was delivered, what is parked for a human and why, and what remains.
 
+## Usage limits: resume after reset
+
+A usage limit stops the orchestrator and its background agents mid-run; nothing restarts them unless you scheduled it.
+
+- **Schedule a resume check** at the start of the run, and again whenever the session reports usage high (≈70%+) or a limit message gives the reset time: `CronCreate` with `recurring: false`, 1 minute after the reset time (when the time is approximate, avoid the :00 and :30 marks).
+  - The prompt is self-contained: the task and scope, the mode, the state of every task (branch, PR, verdict, fix cycles used), the paths of the briefs and the project summary, and the next steps.
+  - It runs `ReadNotifications`, checks every background agent, resumes each one the limit stopped with `SendMessage` to that same agent ("continue where you left off"), then continues the loop: review → fix → merge only as already authorized.
+- **One resume job per reset.** Before scheduling, `CronList` and `CronDelete` the stale ones, or replace them.
+- **Keep progress durable before it can be cut off.** Writers commit and push WIP on their feature branches; you write the run state (the per-task table above) to memory or the job dir, so the resumed run picks up from it rather than from context.
+- **Cron jobs live only in this session.** If the session may exit, tell the user that the resume dies with it. Where available, a `RemoteTrigger` routine is the durable fallback; offer it, don't require it.
+- **The resumed run inherits no new authority.** It merges only what this run was authorized to merge, never work outside the original scope.
+
 ## Writer prompt template
 
 ```

@@ -126,7 +126,11 @@ Nothing is configured in `git` itself. The rules live in docs + skill gates + (o
 /wf:spec user-avatar-upload
 
 # 2. Branch + worktree under .claude/worktrees/ (ignore that path once, globally)
-git check-ignore -q .claude/worktrees/x || echo '.claude/worktrees/' >> ~/.config/git/ignore
+if ! git check-ignore -q .claude/worktrees/x; then
+  f=$(git config --global core.excludesFile || echo "${XDG_CONFIG_HOME:-$HOME/.config}/git/ignore")
+  f=${f/#\~/$HOME}; mkdir -p "$(dirname "$f")" && echo '.claude/worktrees/' >> "$f"
+  git check-ignore -q .claude/worktrees/x || echo "warning: .claude/worktrees/ still not ignored (check $f)" >&2
+fi
 git worktree add -b feat/user-avatar-upload .claude/worktrees/avatar main
 cd .claude/worktrees/avatar
 

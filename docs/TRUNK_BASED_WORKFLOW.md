@@ -125,9 +125,14 @@ Nothing is configured in `git` itself. The rules live in docs + skill gates + (o
 # 1. Spec
 /wf:spec user-avatar-upload
 
-# 2. Branch + worktree (outside repo)
-git worktree add -b feat/user-avatar-upload ../myrepo-avatar main
-cd ../myrepo-avatar
+# 2. Branch + worktree under .claude/worktrees/ (ignore that path once, globally)
+if ! git check-ignore -q .claude/worktrees/x; then
+  f=$(git config --global core.excludesFile || echo "${XDG_CONFIG_HOME:-$HOME/.config}/git/ignore")
+  f=${f/#\~/$HOME}; mkdir -p "$(dirname "$f")" && echo '.claude/worktrees/' >> "$f"
+  git check-ignore -q .claude/worktrees/x || echo "warning: .claude/worktrees/ still not ignored (check $f)" >&2
+fi
+git worktree add -b feat/user-avatar-upload .claude/worktrees/avatar main
+cd .claude/worktrees/avatar
 
 # 3. Implement, then ship
 /wf:feature docs/specs/user-avatar-upload.md
@@ -135,12 +140,12 @@ cd ../myrepo-avatar
 /wf:commit
 /wf:pr
 
-# 4. After merge, clean up
+# 4. After merge, clean up (from the main checkout: a branch checked out in a worktree can't be deleted)
+cd -
+git worktree remove .claude/worktrees/avatar
 git checkout main && git pull
 git branch -d feat/user-avatar-upload
 git push origin --delete feat/user-avatar-upload
-cd -
-git worktree remove ../myrepo-avatar
 ```
 
 ### A larger feature (sliced)
@@ -158,11 +163,12 @@ git worktree remove ../myrepo-avatar
 # Each sub-spec names the feature flag: `oauth_enabled` (default off)
 
 # 2. Implement each slice in its own branch, back to back
-git worktree add -b feat/oauth-provider-config ../myrepo-oauth-1 main
-cd ../myrepo-oauth-1
+git worktree add -b feat/oauth-provider-config .claude/worktrees/oauth-1 main
+cd .claude/worktrees/oauth-1
 /wf:feature docs/specs/oauth-integration/001_provider-config.md
 # review the diff, then `/wf:commit` + `/wf:pr`
-# merge, delete, repeat for 002, 003, 004
+# after merge: cd back, `git worktree remove .claude/worktrees/oauth-1`, delete the branch
+# repeat for 002, 003, 004
 
 # 3. Flip the flag when 004 merges (or on product's timeline)
 ```
@@ -203,7 +209,7 @@ A: No. A `const FEATURE_X_ENABLED = false` in a config file is a feature flag. G
 A: They flood less than big PRs. Small PRs review in minutes; big PRs bounce between author and reviewer for days. Throughput goes up. Tooling matters too — auto-assign reviewers, require only one approval for small changes, use merge queues.
 
 **Q: How does this work with multiple worktrees at once?**
-A: Perfectly — it's the reason worktrees exist. Each slice gets its own worktree (outside the repo), its own branch, its own Claude session. You can run 3–5 in parallel without context collisions. See `/wf:autopilot` for the agent-orchestrated version.
+A: Perfectly — it's the reason worktrees exist. Each slice gets its own worktree (under `.claude/worktrees/`), its own branch, its own Claude session. You can run 3–5 in parallel without context collisions. See `/wf:autopilot` for the agent-orchestrated version.
 
 **Q: Isn't "commit to main" dangerous?**
 A: No one commits to main. Trunk-based = PRs to main. The trunk is protected by branch-protection rules (require PR, passing CI, linear history). The difference from Git Flow isn't "less safety" — it's "safety via gates on one branch, not via isolation on five."

@@ -125,7 +125,8 @@ Nothing is configured in `git` itself. The rules live in docs + skill gates + (o
 # 1. Spec
 /wf:spec user-avatar-upload
 
-# 2. Branch + worktree (under .claude/worktrees/, git-ignored)
+# 2. Branch + worktree under .claude/worktrees/ (ignore that path once, globally)
+git check-ignore -q .claude/worktrees/x || echo '.claude/worktrees/' >> ~/.config/git/ignore
 git worktree add -b feat/user-avatar-upload .claude/worktrees/avatar main
 cd .claude/worktrees/avatar
 
@@ -135,12 +136,12 @@ cd .claude/worktrees/avatar
 /wf:commit
 /wf:pr
 
-# 4. After merge, clean up
+# 4. After merge, clean up (from the main checkout: a branch checked out in a worktree can't be deleted)
+cd -
+git worktree remove .claude/worktrees/avatar
 git checkout main && git pull
 git branch -d feat/user-avatar-upload
 git push origin --delete feat/user-avatar-upload
-cd -
-git worktree remove .claude/worktrees/avatar
 ```
 
 ### A larger feature (sliced)
@@ -162,7 +163,8 @@ git worktree add -b feat/oauth-provider-config .claude/worktrees/oauth-1 main
 cd .claude/worktrees/oauth-1
 /wf:feature docs/specs/oauth-integration/001_provider-config.md
 # review the diff, then `/wf:commit` + `/wf:pr`
-# merge, delete, repeat for 002, 003, 004
+# after merge: cd back, `git worktree remove .claude/worktrees/oauth-1`, delete the branch
+# repeat for 002, 003, 004
 
 # 3. Flip the flag when 004 merges (or on product's timeline)
 ```

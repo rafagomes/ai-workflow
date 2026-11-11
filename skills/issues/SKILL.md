@@ -43,7 +43,7 @@ Use `AskUserQuestion` at each decision point: structured options are unambiguous
 - **Proceed?** (dry-run confirmation): Yes / Cancel.
 - **Next phase** (after each milestone batch, only when the user chose Full roadmap): Yes, continue / Stop here.
 
-If `AskUserQuestion` is unavailable (a headless run), do not file anything: print the dry-run plan and stop. Creating milestones and issues is outward-facing, so only the user's own answer approves it.
+If no user can answer (a headless run or a dispatched agent), do not file anything: print the dry-run plan and stop. Creating milestones and issues is outward-facing, so only the user's own answer approves it.
 
 ## Preflight
 

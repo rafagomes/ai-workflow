@@ -75,7 +75,7 @@ allowed 'git push -n'
 allowed 'git push --dry-run origin feat/x'
 allowed 'git log --no-verify-signatures'
 allowed 'git status -n'
-allowed 'git commit -- -n'
+blocked no-verify 'git commit -- -n'   # a -- is not honoured: it may sit inside a message
 
 # --- trunk force push
 blocked trunk-force-push 'git push --force origin main'
@@ -169,6 +169,60 @@ blocked no-verify 'git commit -m "$(echo ("  --no-verify'
 blocked no-verify 'git commit -m "$(echo \()" --no-verify'
 blocked no-verify $'git commit -m "$(echo \'(\')" --no-verify'
 
+# --- round 6: bypasses found in review
+# line continuations
+blocked no-verify $'git commit -m x \\\n --no-verify'
+blocked trunk-force-push $'git push -f origin \\\nmain'
+blocked pr-approve $'gh pr review 12 \\\n --approve'
+# a -- inside a message must not hide later flags
+blocked no-verify 'git commit -m "fix -- tidy" --no-verify'
+blocked no-verify $'git commit -m "$(cat <<\'EOF\'\nfix -- tidy\nEOF\n)" --no-verify'
+blocked trunk-force-push 'git push -f -- origin main'
+# redirections are not part of a word
+blocked trunk-force-push 'git push -f origin main>/dev/null'
+blocked trunk-force-push 'git push -f origin main<x'
+blocked trunk-force-push 'git push -f origin main>&2'
+blocked no-verify 'git commit --no-verify>/dev/null -m x'
+blocked no-verify 'git>/dev/null commit --no-verify'
+blocked no-verify 'git commit -m x 2>&1 --no-verify'
+# git accepts unambiguous long-option prefixes
+blocked no-verify 'git commit --no-verif -m x'
+blocked no-verify 'git commit --no-veri -m x'
+blocked no-verify 'git push --no-verif'
+blocked trunk-force-push 'git push --force-w origin main'
+blocked trunk-force-push 'git push --force-with origin main'
+blocked trunk-force-push 'git push --force-i origin main'
+blocked trunk-force-push 'git push --for origin main'
+blocked trunk-delete 'git push --delet origin main'
+blocked trunk-delete 'git push --de origin master'
+blocked trunk-force-push 'git push --mirro origin'
+blocked trunk-force-push 'git push --al --force-w'
+allowed 'git push --follow-tags origin feat/x'
+allowed 'git push --dry-run --atomic origin feat/x'
+allowed 'git push --force-with-lease origin feat/x'
+allowed 'git commit --amend --no-edit -m x'
+# other spellings of the trunk
+blocked trunk-force-push 'git push origin +HEAD:heads/main'
+blocked trunk-force-push 'git push -f origin heads/main'
+blocked trunk-force-push 'git push -f origin HEAD:refs/heads/master'
+blocked trunk-force-push 'git push -f origin @'
+blocked trunk-force-push 'git push -f origin @:main'
+blocked trunk-delete 'git push --delete origin heads/main'
+allowed 'git push -f origin @' "$REPO_F"
+# --mirror force-updates every ref, the trunk included
+blocked trunk-force-push 'git push --mirror'
+blocked trunk-force-push 'git push --mirror backup'
+# gh: -a=true and grouped short flags
+blocked pr-approve 'gh pr review 1 -a=true'
+blocked pr-approve 'gh pr review 1 -ab ok'
+blocked pr-approve 'gh pr review 1 -ca'
+allowed 'gh pr review 1 -ba'
+allowed 'gh pr review 1 -c -b "ok"'
+# a long message that mentions git many times is fine (bounded work, not a block)
+msg=""
+for i in $(seq 1 40); do msg="$msg git is used here and there, with many other words in this sentence number $i of the body,"; done
+allowed "git commit -m \"\$(cat <<'EOF'"$'\n'"$msg"$'\nEOF\n)"'
+
 # --- ordinary work stays allowed
 allowed 'git log -n 5'
 allowed 'git log --oneline -n 5 && git status'
@@ -231,6 +285,24 @@ blocked too-large "$many"
 many=""
 for _ in $(seq 1 100); do many="${many}git commit -m x; "; done
 allowed "$many"
+
+# --- crafted inputs finish well inside the hook timeout (a timeout does not block)
+if command -v jq >/dev/null 2>&1 && [[ "$(date +%s%N)" =~ ^[0-9]+$ ]]; then
+    timed_blocked() { # timed_blocked <label> <command>
+        local t0 t1 ms
+        t0=$(date +%s%N)
+        ERR="$(printf '%s' "$2" | jq -Rs '{tool_name:"Bash",cwd:"/tmp",tool_input:{command:.}}' | "$BASH_BIN" "$GUARD" 2>&1 >/dev/null)"; RC=$?
+        t1=$(date +%s%N); ms=$(( (t1 - t0) / 1000000 ))
+        if [ "$RC" -ne 2 ]; then fail "$1 should be blocked (rc=$RC)"
+        elif [ "$ms" -ge 2000 ]; then fail "$1 took ${ms} ms"
+        else ok; fi
+    }
+    rep() { yes "$1" | head -n "$2" | tr -d '\n'; }
+    timed_blocked "22 KB of git commit words" "$(rep 'git commit ' 2000); git commit --no-verify"
+    timed_blocked "1 MB of git push words" "$(rep 'git push ' 100000)"
+    timed_blocked "gh pr review words" "$(rep 'gh pr review ' 80000); gh pr review --approve"
+    timed_blocked "git words with a flag at the end" "$(rep 'git commit ' 2000) --no-verify"
+fi
 
 # --- non-Bash tool calls and bad input are not blocked
 RC=0; ERR="$(printf '%s' '{"tool_name":"Edit","tool_input":{"command":"git push -f origin main"}}' | "$BASH_BIN" "$GUARD" 2>&1)" || RC=$?

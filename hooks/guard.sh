@@ -7,7 +7,8 @@
 #   trunk-force-push    force-pushes the trunk (main, master or the origin default branch)
 #   trunk-delete        deletes the trunk on the remote
 #   pr-approve          runs `gh pr review --approve` (approving is the human's call)
-#   too-large           the command is over 1 MB (too big to inspect safely)
+#   too-large           the command is over 1 MB, has over 500 git/gh segments, or
+#                       more than 100000 words follow its git/gh words (too much to inspect)
 #
 # This is a guardrail against mistakes, not a security boundary. It does not
 # parse shell. It reads the command as raw text: quotes, backslashes and
@@ -15,7 +16,11 @@
 # and ; & |. In every segment, EVERY word `git` (so `xargs git`, `timeout 5
 # git`, `sudo -u u git`, `bash <<< "git commit -n"`, text inside $(...) or
 # backticks) and every word `gh` is read as a command, and the rules apply to the
-# words after it. Quoting cannot hide a command; it fails closed.
+# words after it. Quoting cannot hide a command; it fails closed. Also read: a
+# backslash-newline continues a line, redirections (`main>/dev/null`, `2>&1`)
+# are dropped, `--` is not honoured, long options match as git abbreviates them
+# (`--no-verif`, `--force-w`, `--delet`), the trunk may be written `heads/main`,
+# `refs/heads/main` or `@`, and `git push --mirror` counts as a force-push.
 #
 # Known false positives: any text that literally contains a forbidden command is
 # blocked, whatever it is wrapped in: a commit or PR body, an echo or grep
@@ -79,18 +84,26 @@ is_trunk() {
     return 1
 }
 
+# is_opt <word> <long option without --> <min length>: the word is that long option
+# or an abbreviation of it (git accepts unambiguous prefixes), with or without =value.
+is_opt() {
+    local w="${1#--}"
+    w="${w%%=*}"
+    [ ${#w} -ge "$3" ] && [ ${#w} -le ${#2} ] && [[ "$2" == "$w"* ]]
+}
+
 check_commit_push() { # check_commit_push <sub> <args...>
-    local sub="$1" a cluster ch i skip=0 dd=0
+    local sub="$1" a cluster ch i skip=0
     shift
     for a in "$@"; do
         if [ $skip = 1 ]; then skip=0; continue; fi
-        [ $dd = 1 ] && continue
         case "$a" in
-            --) dd=1 ;;
-            --no-verify) deny no-verify "git $sub --no-verify skips the repo's hooks; fix what the hook reports and run it without --no-verify" ;;
             --message|--file|--reuse-message|--reedit-message|--fixup|--squash|--author|--date|--template|--cleanup)
                 skip=1 ;;
-            --*) ;;
+            --*)
+                if is_opt "$a" no-verify 4; then
+                    deny no-verify "git $sub --no-verify skips the repo's hooks; fix what the hook reports and run it without --no-verify"
+                fi ;;
             -?*)
                 [ "$sub" = commit ] || continue
                 cluster="${a#-}"; cluster="${cluster:0:32}"
@@ -106,18 +119,20 @@ check_commit_push() { # check_commit_push <sub> <args...>
 }
 
 check_push() { # check_push <args...>
-    local a cluster ch i skip=0 dd=0 force=0 del=0 all=0 remote="" have_remote=0 ref dst forced cur
+    local a cluster ch i skip=0 force=0 del=0 all=0 remote="" have_remote=0 ref dst forced cur
     local refs=()
     for a in "$@"; do
         if [ $skip = 1 ]; then skip=0; continue; fi
-        if [ $dd = 0 ] && [[ "$a" == -* ]] && [ "$a" != "-" ]; then
+        if [[ "$a" == -* ]] && [ "$a" != "-" ]; then
             case "$a" in
-                --) dd=1 ;;
-                --force|--force-with-lease|--force-with-lease=*|--force-if-includes) force=1 ;;
-                --delete) del=1 ;;
-                --all|--mirror) all=1 ;;
+                --) ;;
                 --repo|--receive-pack|--exec|--push-option|--signed) skip=1 ;;
-                --*) ;;
+                --*)
+                    # git accepts unambiguous abbreviations of long options
+                    if is_opt "$a" force-with-lease 3 || is_opt "$a" force-if-includes 3; then force=1; fi
+                    if is_opt "$a" delete 2; then del=1; fi
+                    if is_opt "$a" all 2; then all=1; fi
+                    if is_opt "$a" mirror 1; then force=1; all=1; fi ;;
                 *)
                     cluster="${a#-}"; cluster="${cluster:0:32}"
                     for ((i = 0; i < ${#cluster}; i++)); do
@@ -146,8 +161,8 @@ check_push() { # check_push <args...>
         else
             dst="$ref"
         fi
-        dst="${dst#refs/heads/}"
-        if [ "$dst" = HEAD ]; then dst=$(current_branch); fi
+        dst="${dst#refs/}"; dst="${dst#heads/}"
+        if [ "$dst" = HEAD ] || [ "$dst" = "@" ]; then dst=$(current_branch); fi
         if [ $del = 1 ] && is_trunk "$dst" "$remote"; then
             deny trunk-delete "deleting the trunk branch '$dst' on the remote is not allowed; leave the trunk alone"
         fi
@@ -167,7 +182,7 @@ check_push() { # check_push <args...>
 }
 
 check_gh() { # check_gh <args...>
-    local a skip=0 stage=0
+    local a skip=0 stage=0 cluster ch i
     for a in "$@"; do
         if [ $skip = 1 ]; then skip=0; continue; fi
         if [ $stage -lt 2 ]; then
@@ -181,8 +196,18 @@ check_gh() { # check_gh <args...>
             continue
         fi
         case "$a" in
-            --approve|--approve=*|-a) deny pr-approve "approving a PR is the human's call; leave the review at --comment or --request-changes and report to the user" ;;
+            --approve|--approve=*) deny pr-approve "approving a PR is the human's call; leave the review at --comment or --request-changes and report to the user" ;;
             -b|--body|-F|--body-file|-R|--repo) skip=1 ;;
+            --*) ;;
+            -?*)
+                cluster="${a#-}"; cluster="${cluster:0:32}"
+                for ((i = 0; i < ${#cluster}; i++)); do
+                    ch="${cluster:i:1}"
+                    case "$ch" in
+                        a) deny pr-approve "approving a PR is the human's call; leave the review at --comment or --request-changes and report to the user" ;;
+                        b|F|R) [ $((i + 1)) -eq ${#cluster} ] && skip=1; break ;;
+                    esac
+                done ;;
         esac
     done
 }
@@ -195,7 +220,11 @@ check_gh() { # check_gh <args...>
 # that has a git commit/push, a gh pr review or a cd in it, words joined by $US.
 segments() {
     # shellcheck disable=SC2020 # three separators map to three newlines on purpose
-    printf '%s' "$1" | tr '\134\140(){}' '     ' | tr ';&|' '\n\n\n' |
+    # a backslash-newline continues the command: join the lines. >& <& &> are
+    # redirections, not separators.
+    printf '%s' "$1" | LC_ALL=C awk '{ if (sub(/\\$/, " ")) printf "%s", $0; else print }' |
+        sed -e 's/&>/> /g' -e 's/>&/> /g' -e 's/<&/< /g' |
+        tr '\134\140(){}' '     ' | tr ';&|' '\n\n\n' |
         LC_ALL=C awk '
         function show(   q) {
             if (rel) { for (q = 0; q < k; q++) printf "%s%s", (q ? "\037" : ""), O[q]; printf "\n" }
@@ -203,6 +232,7 @@ segments() {
         }
         {
             dq += gsub(/"/, " "); sq += gsub(/\047/, " ")
+            gsub(/[0-9]*[<>]+&?[^ \t]*/, " ")   # drop redirections: main>/dev/null, git>x commit
             n = split($0, W, /[ \t]+/)
             for (j = 1; j <= n; j++) {
                 w = W[j]
@@ -219,6 +249,13 @@ segments() {
         END { show() }'
 }
 
+# charge: every git or gh word rescans the rest of its segment, so bound the total
+# work (T and i are the caller's words and position).
+charge() {
+    WORDS_LEFT=$((WORDS_LEFT - ${#T[@]} + i))
+    [ $WORDS_LEFT -ge 0 ] || deny too-large "too many words after git or gh commands to inspect; split the command"
+}
+
 check_segment() { # check_segment <words joined by $US>
     local T=() i=0 t j gwd sub saved
     IFS="$US" read -r -a T <<<"$1"
@@ -231,6 +268,7 @@ check_segment() { # check_segment <words joined by $US>
                     case "${T[$i]}" in /*) WD="${T[$i]}" ;; *) WD="$WD/${T[$i]}" ;; esac
                 fi ;;
             git)
+                charge
                 gwd="$WD"; sub=""; j=$i
                 while [ $j -lt ${#T[@]} ]; do
                     t="${T[$j]}"; j=$((j + 1))
@@ -251,11 +289,12 @@ check_segment() { # check_segment <words joined by $US>
                     push) check_commit_push push "${T[@]:$j}"; check_push "${T[@]:$j}" ;;
                 esac
                 WD="$saved" ;;
-            gh) check_gh "${T[@]:$i}" ;;
+            gh) charge; check_gh "${T[@]:$i}" ;;
         esac
     done
 }
 
+WORDS_LEFT=100000   # words handed to the rules, over all git and gh commands
 NSEG=0
 while IFS= read -r seg; do
     NSEG=$((NSEG + 1))

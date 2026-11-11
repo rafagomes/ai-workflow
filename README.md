@@ -46,6 +46,39 @@ That is the whole loop. Everything else in this README is detail.
 
 <sub>Inside a session the same install is `/plugin marketplace add rafagomes/ai-workflow` and `/plugin install wf@ai-workflow`. Update with `claude plugin update wf@ai-workflow`; remove with `claude plugin uninstall wf@ai-workflow`.</sub>
 
+## Use with Codex
+
+The same skills, hook and reviewer also run in [OpenAI Codex](https://developers.openai.com/codex) (CLI and the ChatGPT desktop app). Codex reads the repo's `.agents/plugins/marketplace.json` and the `.codex-plugin/plugin.json` manifest; the skills are the same `skills/` folders Claude Code uses.
+
+```bash
+codex plugin marketplace add rafagomes/ai-workflow
+```
+
+Then, in a new Codex session:
+
+1. Open `/plugins`, find the `ai-workflow` marketplace and install `wf`.
+2. Open `/hooks` and trust the plugin's guardrail hook. Codex runs no hook before you have reviewed it.
+3. Invoke a skill as `$feature rate-limiting` or pick it from `/skills`. Codex also starts a skill by itself when your request matches its description, except `autopilot` and `new-project`, which are explicit-only (`agents/openai.yaml` sets `allow_implicit_invocation: false`).
+
+A plugin cannot carry a global instructions file or custom agents, so for those clone the repo and run the installer with `--codex`:
+
+```bash
+./install.sh --codex
+```
+
+| Installed as | What it is |
+|---|---|
+| `~/.codex/AGENTS.md` | The same global conventions Claude Code gets as `~/.claude/CLAUDE.md` (a symlink into this clone; Codex reads `AGENTS.md`, not `CLAUDE.md`) |
+| `~/.codex/agents/wf-reviewer.toml` | The reviewer as a Codex custom agent named `wf-reviewer`, generated from `agents/reviewer.md` so there is one source. Re-run `./install.sh --codex` after pulling to refresh it |
+
+`CODEX_HOME` selects another Codex config dir. An existing file is moved to `<name>.bak.<timestamp>` first, as for Claude Code, and `./uninstall.sh --codex` removes only what the installer made (the link into this clone and the generated agent, recognised by its first line) and restores the backups. Without `--codex` the installer does not touch `~/.codex`.
+
+What differs from Claude Code:
+
+- `/wf:autopilot` needs Claude Code (worktree-isolated writers, resuming agents, scheduled resumes). In Codex run `$feature` per task instead.
+- Codex has no `AskUserQuestion`, worktree isolation or `SendMessage`, and Codex custom agents are not shipped by plugins, which is why the reviewer needs `./install.sh --codex`.
+- The skill text still names Claude Code tools and `CLAUDE.md` in places; a Codex session reads those as the equivalent Codex mechanism.
+
 ## What you get
 
 | Piece | What it means |
@@ -182,6 +215,7 @@ It symlinks two files into `~/.claude/`. A file already there is moved to `<name
 | `--no-settings` | Leave `settings.json` alone |
 | `--with-settings` | Link `settings.json` even into a secondary profile |
 | `--extra` | Also link the personal skills under `extras/` |
+| `--codex` | Also set up Codex: `~/.codex/AGENTS.md` and the `wf-reviewer` agent (see [Use with Codex](#use-with-codex)). `./uninstall.sh --codex` removes them |
 
 </details>
 
@@ -243,17 +277,20 @@ ai-workflow/
 ├── .claude-plugin/
 │   ├── plugin.json            # The wf plugin manifest
 │   └── marketplace.json       # Lets this repo be added as a marketplace
+├── .codex-plugin/plugin.json  # The wf plugin manifest for Codex
+├── .agents/plugins/marketplace.json  # Lets this repo be added as a Codex marketplace
 ├── skills/<name>/SKILL.md     # The 15 skills
+├── skills/<name>/agents/openai.yaml  # Codex invocation policy (autopilot, new-project: explicit only)
 ├── skills/<name>/references/  # Templates and per-stack detail a skill reads only when needed
 ├── agents/reviewer.md         # The reviewer agent
 ├── hooks/                     # Guardrail hook: hooks.json and guard.sh
 ├── dotfiles/CLAUDE.md         # Global conventions (symlinked to ~/.claude/CLAUDE.md)
 ├── settings.example.json      # Seed for your untracked settings.json
-├── install.sh / uninstall.sh  # Symlink the two personal files above
+├── install.sh / uninstall.sh  # Symlink the two personal files above (--codex: AGENTS.md and the Codex reviewer agent)
 ├── extras/                    # Opt-in personal skills (./install.sh --extra)
 ├── evals/                     # Local-only plugin eval cases (docs/SKILL_QUALITY.md); never run in CI
 ├── CLAUDE.md                  # Rules for working IN this repo (not installed)
-├── tests/                     # Offline CI checks: install_test.sh, check_links.py
+├── tests/                     # Offline CI checks: install_test.sh, hooks_test.sh, check_codex.py, check_links.py
 ├── .github/                   # workflows/ci.yml, issue templates, PR template
 └── docs/
     ├── TRUNK_BASED_WORKFLOW.md

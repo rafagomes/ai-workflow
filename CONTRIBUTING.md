@@ -43,7 +43,7 @@ claude plugin validate .
 claude --plugin-dir .
 ```
 
-Skills and agents are discovered from `skills/` and `agents/`; nothing needs registering. `install.sh` and `uninstall.sh` only handle the global `CLAUDE.md` and `settings.json`.
+Skills and agents are discovered from `skills/` and `agents/`; nothing needs registering. `install.sh` and `uninstall.sh` only handle the global `CLAUDE.md` and `settings.json`, plus, with `--codex`, `~/.codex/AGENTS.md` and the generated `wf-reviewer` agent. Codex reads the same `skills/` through `.codex-plugin/plugin.json` and `.agents/plugins/marketplace.json`; a skill that sets `disable-model-invocation: true` needs an `agents/openai.yaml` with `allow_implicit_invocation: false`.
 
 #### CI
 
@@ -55,6 +55,7 @@ Skills and agents are discovered from `skills/` and `agents/`; nothing needs reg
 | `shellcheck` | Every tracked `*.sh` | `shellcheck install.sh uninstall.sh tests/*.sh` |
 | `installer` | `install.sh` and `uninstall.sh`, against a throwaway `HOME` and `CLAUDE_DIR` | `bash tests/install_test.sh` |
 | `hooks` | The guardrail hook (`hooks/guard.sh`) against JSON fixtures | `bash tests/hooks_test.sh` |
+| `codex` | The Codex manifest, marketplace, every `SKILL.md` frontmatter and every `agents/openai.yaml` (offline, standard library only) | `python3 -I tests/check_codex.py` |
 | `links` | Relative links and anchors in tracked Markdown (external URLs are not checked) | `python3 -I tests/check_links.py` |
 
 The guardrail hook (`hooks/guard.sh`) is a heuristic on raw text, not a shell parser: quotes, backslashes, backticks and parentheses become spaces, commands split at `;`, `&`, `|` and newlines (a segment with an unbalanced quote is joined to the next), and every word `git` or `gh` in a segment is read as a command. Quoting cannot hide a command, so the hook fails closed, and any text that literally contains a forbidden command is blocked too, in a commit or PR body, an `echo` or `grep` string or a heredoc. Workarounds: `git commit -F <file>`, `gh pr create` or `gh pr comment` with `--body-file <file>`, or `WF_GUARD=off` in the settings `env` for a deliberate session. Change the hook only with a fixture in `tests/hooks_test.sh` for every case you handle.
@@ -86,7 +87,7 @@ Each commit should leave the toolkit in a working state. Split unrelated changes
 2. Write a clear description of what changed and why
 3. Link to any related issues
 4. Fill in the PR template, including its `## Risk` section: **T0** (prose typo, changelog entry or version bump only; review skipped), **T1** (an ordinary change) or **T2** (CI/CD, installer or anything that runs automatically, permissions or secrets, a public contract, anything hard to reverse; a maintainer merges it). Text that instructs an agent (a skill, the agent, a `CLAUDE.md`) is never T0. See [Risk-tiered review](docs/TRUNK_BASED_WORKFLOW.md#risk-tiered-review)
-5. Run the [CI checks](#ci) locally: `claude plugin validate .`, `shellcheck` on any shell script you touched, `bash tests/install_test.sh` if you touched `install.sh` or `uninstall.sh`, and `python3 -I tests/check_links.py` if you touched Markdown
+5. Run the [CI checks](#ci) locally: `claude plugin validate .`, `shellcheck` on any shell script you touched, `bash tests/install_test.sh` if you touched `install.sh` or `uninstall.sh`, `python3 -I tests/check_codex.py` if you touched a manifest, a skill's frontmatter or an `openai.yaml`, and `python3 -I tests/check_links.py` if you touched Markdown
 
 ### What Makes a Good Skill
 

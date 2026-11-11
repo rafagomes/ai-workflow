@@ -7,6 +7,7 @@ These rules apply **only when working inside the `ai-workflow` repo**. The globa
 This repo is two things: the `wf` Claude Code plugin, and the personal config files a plugin cannot carry.
 
 - `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` — the plugin manifest and the marketplace that serves it
+- `.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json` — the same for Codex (no `version` either); `skills/<name>/agents/openai.yaml` is Codex's invocation policy, required for every skill that sets `disable-model-invocation`
 - `skills/<name>/SKILL.md` — the plugin's skills, invoked as `/wf:<name>`
 - `agents/reviewer.md` — the plugin's reviewer agent (`wf:reviewer`)
 - `hooks/hooks.json`, `hooks/guard.sh` — the plugin's guardrail hook (PreToolUse on Bash); tested by `tests/hooks_test.sh`
@@ -14,7 +15,7 @@ This repo is two things: the `wf` Claude Code plugin, and the personal config fi
 - `settings.json` — your untracked settings, symlinked into `~/.claude/` by `install.sh`
 - `CLAUDE.md` (this file) — project-specific rules, loaded only when `cwd` is this repo
 - `extras/` — opt-in personal skills, only installed via `./install.sh --extra`
-- `tests/` — CI checks that run offline: `install_test.sh` (installer and uninstaller) and `check_links.py` (Markdown links and anchors)
+- `tests/` — CI checks that run offline: `install_test.sh` (installer and uninstaller, including `--codex`), `hooks_test.sh`, `check_codex.py` (Codex manifests, skill frontmatter, `openai.yaml`) and `check_links.py` (Markdown links and anchors)
 - `.github/` — `workflows/ci.yml` (free-only CI), issue templates and the PR template
 - `docs/` — the trunk-based workflow guide and the skill-quality notes
 
@@ -35,7 +36,7 @@ When you change something in this list (left), update the docs on the right in t
 | Skill behavior, args, or removal/rename | `skills/<name>/SKILL.md` (the source), `README.md` Skills table + tree, `CHANGELOG.md` |
 | Workflow convention (trunk rules, commit style, etc.) | `dotfiles/CLAUDE.md`, `docs/TRUNK_BASED_WORKFLOW.md`, `CHANGELOG.md` |
 | Adding/removing a skill | `README.md` Skills tables, `dotfiles/CLAUDE.md` "Toolkit" section, `.claude-plugin/marketplace.json` description if the count changes, `CHANGELOG.md` |
-| Plugin manifests, installer or symlink layout | `install.sh`, `uninstall.sh`, `README.md` install section + tree, `CHANGELOG.md` |
+| Plugin manifests (Claude or Codex), installer or symlink layout | `install.sh`, `uninstall.sh`, `README.md` install section + Codex section + tree, `CHANGELOG.md` |
 | CI or test change (`tests/`, `.github/workflows/`) | `CONTRIBUTING.md` CI section, `CHANGELOG.md` |
 | New or repurposed top-level convention file | `README.md` repo-tree section |
 
@@ -68,7 +69,10 @@ If you're not sure whether a change is doc-relevant, it is. Default to updating 
   - `claude plugin validate .`
   - `git ls-files -z '*.sh' | xargs -0 shellcheck`
   - `bash tests/install_test.sh`
+  - `bash tests/hooks_test.sh`
+  - `python3 -I tests/check_codex.py`
   - `python3 -I tests/check_links.py`
+- Codex packaging can be loaded for real without a model call: with `CODEX_HOME` and `HOME` pointed at a scratch dir, `npx -y @openai/codex@0.167.1 plugin marketplace add "$PWD"` then `plugin marketplace list`. Never run a prompt against a model for this.
 
 ## When in doubt, ask
 

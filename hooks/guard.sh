@@ -7,28 +7,29 @@
 #   trunk-force-push    force-pushes the trunk (main, master or the origin default branch)
 #   trunk-delete        deletes the trunk on the remote
 #   pr-approve          runs `gh pr review --approve` (approving is the human's call)
+#   too-large           the command is over 1 MB (too big to inspect safely)
 #
-# This is a guardrail against mistakes, not a security boundary. It tokenizes the
-# command (quotes, ; & | newlines, ( ) and backticks split commands) and looks at
-# each command's first words. It does not expand variables, aliases, git aliases,
-# `git -c core.hooksPath=...`, `sudo -u user git ...`, scripts, heredoc bodies
-# (their lines are read as commands, a rare false positive), or `gh api`. A
-# determined agent can get around it; an honest mistake is caught.
-# The rules run on the command read two ways (plain quote tracking, and with a
-# `$(...)` inside double quotes kept whole) and on the body of every `$(...)` and
-# backtick span, recursively (depth 4, 100 spans; beyond that it blocks). The
-# command is blocked if any reading blocks, so a parsing quirk fails closed.
-# Known false positive: a `git commit -m "$(cat <<'EOF' ... EOF)"` message with an
-# odd number of quotes around `-n`, `--no-verify` or a line starting `git push -f`
-# can be blocked. Write the message to a file and use `git commit -F <file>`.
+# This is a guardrail against mistakes, not a security boundary. It does not
+# parse shell. It reads the command as raw text: quotes, backslashes and
+# backticks, ( ) { } become spaces, and the text is split into segments at newlines
+# and ; & |. In every segment, EVERY word `git` (so `xargs git`, `timeout 5
+# git`, `sudo -u u git`, `bash <<< "git commit -n"`, text inside $(...) or
+# backticks) and every word `gh` is read as a command, and the rules apply to the
+# words after it. Quoting cannot hide a command; it fails closed.
+#
+# Known false positives: any text that literally contains a forbidden command is
+# blocked, whatever it is wrapped in: a commit or PR body, an echo or grep
+# string, single-quoted text, a heredoc. Workarounds: `git commit -F <file>`,
+# `gh pr create|comment --body-file <file>`, or WF_GUARD=off for a deliberate
+# session. Not covered: variables, aliases, git aliases, `git -c core.hooksPath`,
+# scripts, `gh api`, and a command split by quotes inside a word (`g"i"t`).
 #
 # Fails open: with neither jq nor python3, or JSON it cannot parse, the command is
 # allowed and a one-line warning goes to stderr, so a missing tool never bricks a
 # session. Escape hatch: WF_GUARD=off in the hook's own environment (set it in the
 # settings `env`, not inline in the command) allows everything.
 
-US=$'\037'   # token separator between words of one command
-RS=$'\036'   # stands for a newline inside a token
+US=$'\037'   # separator between the words of a segment
 
 warn_open() { echo "wf guard: $1; guardrails skipped for this command" >&2; exit 0; }
 
@@ -60,128 +61,7 @@ deny() { # deny <rule> <message>
     printf 'wf guard [%s]: %s (WF_GUARD=off in settings env disables the guard)\n' "$1" "$2" >&2
     exit 2
 }
-
-# One awk program, three modes (aware):
-#   0  tokenize with plain quote tracking
-#   1  tokenize, keeping a $(...) inside double quotes in its token
-#   2  print the body of every outermost $(...) and `...` span, one per line
-# Tokenizing splits a command string into segments, one per line, tokens joined
-# by $US; a newline inside a token is written as $RS.
-# shellcheck disable=SC2016 # awk program text, not a shell expansion
-AWK_PROG='
-    function add(c) { tok = tok (c == "\n" ? "\036" : c); has = 1 }
-    function endtok() { if (has) { seg = seg (segn++ ? "\037" : "") tok } tok = ""; has = 0 }
-    function endseg() { endtok(); if (segn > 0) print seg; seg = ""; segn = 0 }
-    function emit(b) { if (b != "") { gsub(/\n/, "\036", b); print b } }
-    # scan_subst: end index of the $(...) starting at i, skipping quoted spans,
-    # escapes and heredoc bodies; sets unterm when there is no closing paren
-    function scan_subst(i,   j, depth, ch, hd, k, e, line, p, w, qc) {
-        depth = 0; hd = ""; unterm = 0
-        for (j = i + 1; j <= len; j++) {
-            ch = substr(s, j, 1)
-            if (ch == "\\") j++
-            else if (ch == "\047") { j++; while (j <= len && substr(s, j, 1) != "\047") j++ }
-            else if (ch == "\"") {
-                j++
-                while (j <= len && substr(s, j, 1) != "\"") { if (substr(s, j, 1) == "\\") j++; j++ }
-            }
-            else if (ch == "<" && substr(s, j + 1, 1) == "<" && substr(s, j + 2, 1) != "<") {
-                p = j + 2
-                if (substr(s, p, 1) == "-") p++
-                while (substr(s, p, 1) == " " || substr(s, p, 1) == "\t") p++
-                qc = substr(s, p, 1)
-                if (qc == "\047" || qc == "\"") p++
-                w = ""
-                while (substr(s, p, 1) ~ /[A-Za-z0-9_]/) { w = w substr(s, p, 1); p++ }
-                if (w != "" && (qc == "\047" || qc == "\"") && substr(s, p, 1) == qc) p++
-                if (w != "") hd = w
-                j = p - 1
-            }
-            else if (ch == "\n" && hd != "") {
-                k = j + 1
-                while (1) {
-                    if (k > len) { j = len; break }
-                    for (e = k; e <= len && substr(s, e, 1) != "\n"; e++) ;
-                    line = substr(s, k, e - k); sub(/^\t+/, "", line)
-                    if (line == hd) { j = e - 1; hd = ""; break }
-                    k = e + 1
-                }
-            }
-            else if (ch == "(") depth++
-            else if (ch == ")") { if (--depth == 0) return j }
-        }
-        unterm = 1
-        return len
-    }
-    function extract(   i, j, e, ch, depth, key) {
-        # A: parens counted with no quote handling
-        for (i = 1; i <= len; i++) {
-            if (substr(s, i, 1) == "$" && substr(s, i + 1, 1) == "(") {
-                depth = 0
-                for (j = i + 1; j <= len; j++) {
-                    ch = substr(s, j, 1)
-                    if (ch == "(") depth++
-                    else if (ch == ")" && --depth == 0) break
-                }
-                e = (j > len) ? len : j - 1
-                key[i ":" e] = 1
-                emit(substr(s, i + 2, e - i - 1))
-                i = (j > len) ? len : j
-            }
-        }
-        # B: quote-aware scan; skip bodies already printed
-        for (i = 1; i <= len; i++) {
-            if (substr(s, i, 1) == "$" && substr(s, i + 1, 1) == "(") {
-                j = scan_subst(i)
-                e = unterm ? len : j - 1
-                if (!((i ":" e) in key)) emit(substr(s, i + 2, e - i - 1))
-                i = unterm ? len : j
-            }
-        }
-        # C: backticks, paired in order
-        for (i = 1; i <= len; i++) {
-            if (substr(s, i, 1) == "`") {
-                for (j = i + 1; j <= len && substr(s, j, 1) != "`"; j++) ;
-                emit(substr(s, i + 1, j - i - 1))
-                i = j
-            }
-        }
-    }
-    { s = s (NR > 1 ? "\n" : "") $0 }
-    END {
-        len = length(s); q = ""
-        if (aware == 2) { extract(); exit }
-        for (i = 1; i <= len; i++) {
-            c = substr(s, i, 1)
-            if (q == "\047") { if (c == "\047") q = ""; else add(c); continue }
-            if (q == "\"") {
-                if (c == "\\") {
-                    d = substr(s, i + 1, 1)
-                    if (d == "\"" || d == "\\" || d == "$" || d == "`") { add(d); i++ } else add(c)
-                } else if (aware == 1 && c == "$" && substr(s, i + 1, 1) == "(") {
-                    # $(...) inside double quotes: keep it, quotes and all, in this token
-                    j = scan_subst(i)
-                    sub_s = substr(s, i, j - i + 1)
-                    gsub(/\n/, "\036", sub_s)
-                    tok = tok sub_s; has = 1
-                    i = j
-                } else if (c == "\"") q = ""; else add(c)
-                continue
-            }
-            if (c == "\047" || c == "\"") { q = c; has = 1 }
-            else if (c == "\\") {
-                d = substr(s, i + 1, 1); i++
-                if (d != "\n") add(d)
-            }
-            else if (c == " " || c == "\t") endtok()
-            else if (c == "#" && !has) { while (i < len && substr(s, i + 1, 1) != "\n") i++ }
-            else if (c == "\n" || c == ";" || c == "&" || c == "|" || c == "(" || c == ")" || c == "`") endseg()
-            else add(c)
-        }
-        endseg()
-    }'
-
-tokenize() { printf '%s' "$1" | LC_ALL=C awk -v aware="$2" "$AWK_PROG"; }
+[ ${#command_str} -le 1048576 ] || deny too-large "the command is over 1 MB, too big to inspect; split it up or write it to a script file"
 
 git_dir() { git -C "$WD" "$@" 2>/dev/null; }
 
@@ -213,7 +93,7 @@ check_commit_push() { # check_commit_push <sub> <args...>
             --*) ;;
             -?*)
                 [ "$sub" = commit ] || continue
-                cluster="${a#-}"
+                cluster="${a#-}"; cluster="${cluster:0:32}"
                 for ((i = 0; i < ${#cluster}; i++)); do
                     ch="${cluster:i:1}"
                     case "$ch" in
@@ -239,7 +119,7 @@ check_push() { # check_push <args...>
                 --repo|--receive-pack|--exec|--push-option|--signed) skip=1 ;;
                 --*) ;;
                 *)
-                    cluster="${a#-}"
+                    cluster="${a#-}"; cluster="${cluster:0:32}"
                     for ((i = 0; i < ${#cluster}; i++)); do
                         ch="${cluster:i:1}"
                         case "$ch" in
@@ -257,6 +137,7 @@ check_push() { # check_push <args...>
     done
 
     for ref in ${refs[@]+"${refs[@]}"}; do
+        [ ${#ref} -le 1024 ] || continue   # no ref name is that long; the expansions below are quadratic on long words
         forced=$force
         [[ "$ref" == +* ]] && { forced=1; ref="${ref#+}"; }
         if [[ "$ref" == *:* ]]; then
@@ -306,99 +187,79 @@ check_gh() { # check_gh <args...>
     done
 }
 
-DEPTH=0
-NBODIES=0
-# check_string <command string>: runs the rules on the command read two ways (plain
-# quote tracking, and with $(...) inside double quotes kept whole) and blocks if
-# either blocks, then on the body of every $(...) and backtick span, recursively.
-check_string() {
-    local segs bodies b origwd
-    DEPTH=$((DEPTH + 1))
-    if [ $DEPTH -gt 4 ]; then
-        deny nesting "command nesting is too deep to inspect; run the steps as separate commands"
-    fi
-    origwd="$WD"
-    check_segs "$(tokenize "$1" 1)"; WD="$origwd"
-    check_segs "$(tokenize "$1" 0)"; WD="$origwd"
-    bodies=$(tokenize "$1" 2)
-    if [ -n "$bodies" ]; then
-        while IFS= read -r b; do
-            NBODIES=$((NBODIES + 1))
-            if [ $NBODIES -gt 100 ]; then
-                deny nesting "too many command substitutions to inspect; split the command"
-            fi
-            check_string "${b//$RS/$'\n'}"
-            WD="$origwd"
-        done <<<"$bodies"
-    fi
-    DEPTH=$((DEPTH - 1))
+# Raw-text pass: backslashes, backticks and ( ) { } become spaces, ; & | and
+# newlines split segments, and quote characters become spaces after being counted.
+# A segment that ends with an odd number of ' or " is joined to the next one (the
+# separator was probably inside a quoted message), so a flag after a multi-line
+# or `;` message is still read as part of the command. awk prints each segment
+# that has a git commit/push, a gh pr review or a cd in it, words joined by $US.
+segments() {
+    # shellcheck disable=SC2020 # three separators map to three newlines on purpose
+    printf '%s' "$1" | tr '\134\140(){}' '     ' | tr ';&|' '\n\n\n' |
+        LC_ALL=C awk '
+        function show(   q) {
+            if (rel) { for (q = 0; q < k; q++) printf "%s%s", (q ? "\037" : ""), O[q]; printf "\n" }
+            k = 0; git = 0; gh = 0; rel = 0; dq = 0; sq = 0
+        }
+        {
+            dq += gsub(/"/, " "); sq += gsub(/\047/, " ")
+            n = split($0, W, /[ \t]+/)
+            for (j = 1; j <= n; j++) {
+                w = W[j]
+                if (w == "") continue
+                O[k++] = w
+                if (w ~ /(^|\/)git$/) git = 1
+                else if (w ~ /(^|\/)gh$/) gh = 1
+                else if (git && (w == "commit" || w == "push")) rel = 1
+                else if (gh && w == "review") rel = 1
+                else if (w == "cd") rel = 1
+            }
+            if (dq % 2 == 0 && sq % 2 == 0) show()
+        }
+        END { show() }'
 }
 
-check_segs() { # check_segs <segments from tokenize>
-    local segs="$1" line t i gwd sub saved rest w
-    local T=()
-    [ -n "$segs" ] || return 0
-    while IFS= read -r line; do
-        IFS="$US" read -r -a T <<<"$line"
-        i=0
-        # skip prefixes: assignments, env/command/sudo-like wrappers, shell keywords
-        while [ $i -lt ${#T[@]} ]; do
-            t="${T[$i]}"
-            if [[ "$t" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then i=$((i + 1)); continue; fi
-            case "${t##*/}" in
-                env|command|exec|nohup|time|sudo|nice|builtin)
-                    i=$((i + 1))
-                    while [ $i -lt ${#T[@]} ] && [[ "${T[$i]}" == -* ]]; do i=$((i + 1)); done
-                    continue ;;
-                '!'|'{'|if|then|else|elif|do|while|until) i=$((i + 1)); continue ;;
-            esac
-            break
-        done
-        [ $i -lt ${#T[@]} ] || continue
+check_segment() { # check_segment <words joined by $US>
+    local T=() i=0 t j gwd sub saved
+    IFS="$US" read -r -a T <<<"$1"
+    while [ $i -lt ${#T[@]} ]; do
         t="${T[$i]}"; i=$((i + 1))
+        [ ${#t} -le 256 ] || continue   # no command name is that long; the suffix strip below is quadratic on long words
         case "${t##*/}" in
             cd)
                 if [ $i -lt ${#T[@]} ] && [ "${T[$i]}" != "-" ]; then
                     case "${T[$i]}" in /*) WD="${T[$i]}" ;; *) WD="$WD/${T[$i]}" ;; esac
                 fi ;;
             git)
-                gwd="$WD"; sub=""
-                while [ $i -lt ${#T[@]} ]; do
-                    t="${T[$i]}"; i=$((i + 1))
+                gwd="$WD"; sub=""; j=$i
+                while [ $j -lt ${#T[@]} ]; do
+                    t="${T[$j]}"; j=$((j + 1))
                     case "$t" in
                         -C)
-                            if [ $i -lt ${#T[@]} ]; then
-                                case "${T[$i]}" in /*) gwd="${T[$i]}" ;; *) gwd="$gwd/${T[$i]}" ;; esac
-                                i=$((i + 1))
+                            if [ $j -lt ${#T[@]} ]; then
+                                case "${T[$j]}" in /*) gwd="${T[$j]}" ;; *) gwd="$gwd/${T[$j]}" ;; esac
+                                j=$((j + 1))
                             fi ;;
-                        -c|--git-dir|--work-tree|--namespace|--exec-path|--config-env) i=$((i + 1)) ;;
+                        -c|--git-dir|--work-tree|--namespace|--exec-path|--config-env) j=$((j + 1)) ;;
                         -*) ;;
                         *) sub="$t"; break ;;
                     esac
                 done
                 saved="$WD"; WD="$gwd"
                 case "$sub" in
-                    commit) check_commit_push commit "${T[@]:$i}" ;;
-                    push) check_commit_push push "${T[@]:$i}"; check_push "${T[@]:$i}" ;;
+                    commit) check_commit_push commit "${T[@]:$j}" ;;
+                    push) check_commit_push push "${T[@]:$j}"; check_push "${T[@]:$j}" ;;
                 esac
                 WD="$saved" ;;
             gh) check_gh "${T[@]:$i}" ;;
-            bash|sh|zsh|dash|ksh)
-                while [ $i -lt ${#T[@]} ]; do
-                    t="${T[$i]}"; i=$((i + 1))
-                    if [[ "$t" == -* && "$t" != --* && "$t" == *c* ]]; then
-                        [ $i -lt ${#T[@]} ] && check_string "${T[$i]//$RS/$'\n'}"
-                        break
-                    fi
-                    [[ "$t" == -* ]] || break
-                done ;;
-            eval)
-                rest=""
-                for w in "${T[@]:$i}"; do rest="$rest $w"; done
-                check_string "${rest//$RS/$'\n'}" ;;
         esac
-    done <<<"$segs"
+    done
 }
 
-check_string "$command_str"
+NSEG=0
+while IFS= read -r seg; do
+    NSEG=$((NSEG + 1))
+    [ $NSEG -le 500 ] || deny too-large "more than 500 git or gh commands in one call, too many to inspect; split it up"
+    check_segment "$seg"
+done <<<"$(segments "$command_str")"
 exit 0

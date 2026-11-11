@@ -69,10 +69,8 @@ blocked no-verify 'git -c user.name=a commit -n'
 blocked no-verify 'git push --no-verify'
 blocked no-verify 'git push --no-verify origin feat/x'
 blocked no-verify 'GIT_AUTHOR_NAME=a git commit -n'
-allowed 'git commit -m "fix -n handling" -a'
 allowed 'git commit -m -n'
 allowed 'git commit -am "msg"'
-allowed 'git commit -m "a --no-verify b"'
 allowed 'git push -n'
 allowed 'git push --dry-run origin feat/x'
 allowed 'git log --no-verify-signatures'
@@ -118,38 +116,37 @@ allowed 'git push -f origin trunk-next'
 allowed "cd $REPO_F && git push --force"
 allowed 'git log main -f'
 allowed 'grep -- --force file'
-allowed 'echo "git push -f origin main"'
-allowed 'git commit -m "never git push --force origin main"'
 allowed "git push -f origin 'feat/x'"
 
-# --- $(...) inside double quotes (heredoc messages) stays inside its token
-# KNOWN FALSE POSITIVE (documented): the plain tokenization also runs, and an odd number of quotes
-# in a $(...) message makes it read the rest as commands. Use `git commit -F <file>` instead.
+# --- text that literally contains a forbidden command is blocked (documented false
+# positive): the guard reads raw text, so quoting, heredocs and $(...) do not hide it.
+# Workarounds: git commit -F <file>, gh pr create|comment --body-file <file>, WF_GUARD=off.
 blocked no-verify $'git commit -m "$(cat <<\'EOF\'\nfix: say "use -n" in docs\nEOF\n)"'
-allowed $'git commit -m "$(cat <<\'EOF\'\ndocs: explain "never pass --no-verify"\nEOF\n)"'
+blocked no-verify $'git commit -m "$(cat <<\'EOF\'\ndocs: explain "never pass --no-verify"\nEOF\n)"'
 blocked trunk-force-push $'git commit -m "$(cat <<\'EOF\'\ndocs: one " quote\ngit push -f origin main\nEOF\n)"'
-allowed $'gh pr review 3 --comment -b "$(cat <<\'EOF\'\nsay "gh pr review --approve" is human only\nEOF\n)"'
-allowed $'git commit -m "$(printf %s "a (nested) \\"-n\\"")" && git status'
-blocked no-verify $'git commit --no-verify -m "$(cat <<\'EOF\'\nx "quoted"\nEOF\n)"'
-blocked no-verify $'git commit -m "$(cat <<\'EOF\'\nx "quoted"\nEOF\n)" --no-verify'
-blocked trunk-force-push $'git commit -m "$(cat <<\'EOF\'\nx "quoted"\nEOF\n)" && git push -f origin main'
+blocked pr-approve $'gh pr review 3 --comment -b "$(cat <<\'EOF\'\nsay "gh pr review --approve" is human only\nEOF\n)"'
+blocked no-verify $'git commit -m "$(printf %s "a (nested) \\"-n\\"")" && git status'
+blocked no-verify $'git commit -m "$(echo \'(\') say \\"-n\\""'
+blocked no-verify 'git commit -m "fix -n handling" -a'
+blocked no-verify 'git commit -m "a --no-verify b"'
+blocked trunk-force-push 'echo "git push -f origin main"'
+blocked trunk-force-push 'git commit -m "never git push --force origin main"'
+blocked pr-approve 'gh pr review 12 --comment -b "do not --approve yet"'
+blocked trunk-force-push "echo '\$(git push -f origin main)'"
 
-# unmatched parens in the substitution must not swallow what follows
-allowed $'git commit -m "$(cat <<\'EOF\'\nfeat: add x (see #3 \nsay "hi" :(\na) item\nEOF\n)"'
-blocked no-verify $'git commit -m "$(cat <<-\'EOF\'\n\tb) "quoted -n"\n\tEOF\n)"'
-allowed $'git commit -m "$(echo \'(\') say \\"-n\\""'
-blocked no-verify $'git commit -m "$(cat <<\'EOF\'\nfeat: add x (see #3\nEOF\n)" --no-verify'
-blocked no-verify $'git commit -m "$(cat <<\'EOF\'\nsmile :(\nEOF\n)" --no-verify'
-blocked no-verify $'git commit -m "$(echo \'(\')" --no-verify'
-blocked no-verify $'git commit -m "$(echo \\()" --no-verify'
-blocked no-verify $'git commit -m "$(echo ("  --no-verify'
-blocked no-verify $'git commit -m "$(cat <<\'EOF\'\na) item\n"quoted"\nEOF\n)" -n'
-blocked trunk-force-push $'git commit -m "$(cat <<\'EOF\'\nfeat: add x (see #3\nEOF\n)" && git push -f origin main'
-blocked trunk-force-push $'git commit -m "$(echo \'(\')" && git push -f origin main'
-blocked trunk-force-push $'git commit -m "$(echo \\()" && git push -f origin main'
-blocked trunk-force-push $'git commit -m "$(cat <<\'EOF\'\nsmile :(\nEOF\n)" && git push -f origin main'
-
-# commands inside $(...) and backticks are checked too, in and out of double quotes
+# --- quoting, escapes, backticks, substitutions and wrappers cannot hide a command
+blocked trunk-force-push 'echo '"'"'`'"'"'; echo "`git push -f origin main`"'
+blocked no-verify 'echo "\`" "`git commit -n -m x`"'
+blocked pr-approve 'echo \` "`gh pr review 7 --approve`"'
+blocked no-verify 'echo "$(case x in x) git commit -n -m y;; esac)"'
+blocked trunk-delete 'x="$(case a in a) git push origin :main;; esac)"'
+blocked no-verify $'echo "$(echo x # )\ngit commit -n -m x\n)"'
+blocked no-verify 'timeout 5 git commit -n -m x'
+blocked no-verify 'nice -n 5 git commit -n -m x'
+blocked no-verify 'bash <<< "git commit -n -m x"'
+blocked no-verify 'eval "$(echo git commit -n -m x)"'
+blocked no-verify 'echo a | xargs git commit -n -m'
+blocked trunk-force-push 'sudo -u u git push -f origin main'
 blocked trunk-force-push 'out="$(git push -f origin main 2>&1)"'
 blocked no-verify 'echo "$(git commit --no-verify -m x)"'
 blocked pr-approve 'echo "$(gh pr review 1 --approve)"'
@@ -157,13 +154,39 @@ blocked no-verify 'echo "`git commit --no-verify`"'
 blocked no-verify 'echo $(git commit -n -m x)'
 blocked trunk-force-push 'x=`git push --force origin main`'
 blocked no-verify 'echo "$(echo "$(git commit --no-verify -m x)")"'
-# a wrong closing paren in the quote-aware scan must not hide anything
+blocked trunk-force-push 'echo "$(echo "$(echo "$(echo "$(echo "$(git push -f origin main)")")")")"'
 blocked trunk-force-push $'git commit -m "$(printf $\'\\\'\')" && git push -f origin main; echo \')\''
 blocked no-verify $'git commit -m "$(echo hi # don\'t\n)" --no-verify; echo \')\''
+# flags after a multi-line or `;` message, with balanced and unbalanced quotes
+blocked no-verify $'git commit -m "$(cat <<\'EOF\'\nfeat: add x (see #3\nEOF\n)" --no-verify'
+blocked no-verify $'git commit -m "$(cat <<\'EOF\'\nsmile :(\nEOF\n)" --no-verify'
+blocked no-verify $'git commit -m "$(cat <<\'EOF\'\nit\'s a) item\nEOF\n)" -n'
+blocked no-verify $'git commit -m "$(cat <<\'EOF\'\nx "quoted"\nEOF\n)" --no-verify'
+blocked no-verify 'git commit -m "a; b" -n'
+blocked no-verify $'git commit -m "line one\nline two" --no-verify'
+blocked trunk-force-push $'git commit -m "$(cat <<\'EOF\'\nsmile :(\nEOF\n)" && git push -f origin main'
+blocked no-verify 'git commit -m "$(echo ("  --no-verify'
+blocked no-verify 'git commit -m "$(echo \()" --no-verify'
+blocked no-verify $'git commit -m "$(echo \'(\')" --no-verify'
+
+# --- ordinary work stays allowed
+allowed 'git log -n 5'
+allowed 'git log --oneline -n 5 && git status'
+allowed 'git push --dry-run origin feat/x'
+allowed 'git push -n origin feat/x'
+allowed 'gh pr review 3 --comment -b "looks good"'
+allowed 'git commit -m "msg" && git log -n 3'
 allowed 'echo "$(git log --oneline -3)" > /dev/null'
+allowed 'for f in a b; do git add "$f"; done; git commit -m "add files"'
+allowed 'ls -n; cd /tmp && git status'
 allowed $'git commit -m "$(cat <<\'EOF\'\nfeat: add (see #3) and say "hi"\nEOF\n)"'
-# depth and count limits fail closed
-blocked nesting 'echo "$(echo "$(echo "$(echo "$(echo "$(echo hi)")")")")"'
+allowed $'git commit -m "$(cat <<\'EOF\'\nfeat: add x (see #3 \nsay "hi" :(\na) item\nEOF\n)"'
+allowed $'git commit -m "$(cat <<\'EOF\'\ndon\'t stop (see #3 a) item\nEOF\n)"'
+allowed $'git commit -m "$(cat <<\'EOF\'\nfix: handle `a/b.go`, `c.go`\n\n- a) item (x\nEOF\n)"'
+body=""
+for i in $(seq 1 60); do body="$body- use \`path/file$i.go\` and \`helper$i\` here"$'\n'; done
+allowed "gh pr create --title t --body \"\$(cat <<'EOF'"$'\n'"$body"$'EOF\n)"'
+allowed "git commit -m \"\$(cat <<'EOF'"$'\n'"$body"$'EOF\n)"'
 
 # --- trunk delete
 blocked trunk-delete 'git push origin --delete main'
@@ -184,7 +207,6 @@ blocked pr-approve 'gh -R owner/repo pr review 12 --approve'
 blocked pr-approve 'gh pr review -R owner/repo 12 --approve=true'
 blocked pr-approve 'cd x && gh pr review --approve'
 blocked pr-approve 'sh -c "gh pr review 3 --approve"'
-allowed 'gh pr review 12 --comment -b "do not --approve yet"'
 allowed 'gh pr review 12 --request-changes -b "-a"'
 allowed 'gh pr view 12'
 allowed 'gh pr merge 12'
@@ -194,6 +216,21 @@ allowed 'gh issue list --approve'
 allowed 'ls -la'
 allowed ''
 allowed 'echo "unterminated'
+
+# --- a command over 1 MB is blocked (too large to inspect), a big one under it is not
+big() { printf '{"tool_name":"Bash","tool_input":{"command":"echo '; head -c "$1" /dev/zero | tr '\0' 'a'; printf '"}}'; }
+RC=0; ERR="$(big 1100000 | "$BASH_BIN" "$GUARD" 2>&1 >/dev/null)" || RC=$?
+if [ "$RC" -eq 2 ] && [[ "$ERR" == *"[too-large]"* ]]; then ok; else fail "over 1 MB should be blocked (rc=$RC)"; fi
+RC=0; big 300000 | "$BASH_BIN" "$GUARD" >/dev/null 2>&1 || RC=$?
+if [ "$RC" -eq 0 ]; then ok; else fail "300 KB word should be allowed (rc=$RC)"; fi
+
+# --- more than 500 git commit/push or gh pr review segments in one call is blocked
+many=""
+for _ in $(seq 1 600); do many="${many}git commit -m x; "; done
+blocked too-large "$many"
+many=""
+for _ in $(seq 1 100); do many="${many}git commit -m x; "; done
+allowed "$many"
 
 # --- non-Bash tool calls and bad input are not blocked
 RC=0; ERR="$(printf '%s' '{"tool_name":"Edit","tool_input":{"command":"git push -f origin main"}}' | "$BASH_BIN" "$GUARD" 2>&1)" || RC=$?

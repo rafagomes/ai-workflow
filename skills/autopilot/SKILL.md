@@ -25,15 +25,18 @@ Model roles: the orchestrator (this session), the reviewer and the security gate
 
 - **autonomous (default)** — merge each T0 and T1 PR to the trunk branch once its review passes, phase after phase, with no human gate. A T2 PR is parked as `awaiting-human-merge` (step 5e) and does **not** stop the run: it keeps running every task that does not depend on a parked PR, later phases whose dependencies are met included. It stops, lists the parked PRs and waits for `continue` only when nothing left can proceed without one of them being merged; otherwise it stops only on a stop condition (below).
 - **`--supervised`** — do everything except merge. Each PR carries its review verdict as a PR **comment** (never `gh pr review --approve` or `--request-changes` — approval is the human's). Stop whenever every remaining task in the phase is waiting on an unmerged PR, or every task in the phase has a PR, and wait for `continue` / `retry <task>` / `skip <task>` / `stop`.
-- **On `continue`** (both modes, after a stop for unmerged PRs):
-  1. `git pull --ff-only origin <base>`, then read the state of every parked or open PR with `gh pr view <n> --json state`.
-  2. Remove the writer worktree of each PR that is now `MERGED`.
-  3. Dispatch the tasks whose dependencies are all `MERGED`.
-  4. Run step 5f for each phase whose PRs are all `MERGED` (or whose tasks were skipped). The status commit follows the mode: autonomous pushes it directly, unless `<base>` only accepts PRs; `--supervised` goes through its own small PR cut from the current `<base>`, which you also leave for the human and list in the final summary if it is still open when the run ends. `--supervised` advances to the next phase only when every PR of the phase is `MERGED`.
-  5. While any PR is still `OPEN`, or was `CLOSED` without merging, and nothing else can proceed, list those PRs and stop again; a closed one needs `retry <task>` or `skip <task>`.
 - **`--dry-run`** — do steps 1–4, print the wave plan, dispatch nothing.
 
 Never switch modes silently. If the trunk branch turns out to be protected against your merge, say so and continue as `--supervised`.
+
+### On `continue`
+
+On `continue`, in both modes, after a stop for unmerged PRs:
+1. `git pull --ff-only origin <base>`, then read the state of every parked or open PR with `gh pr view <n> --json state`.
+2. Remove the writer worktree of each PR that is now `MERGED`.
+3. Dispatch the tasks whose dependencies are all `MERGED`.
+4. Run step 5f for each phase whose PRs are all `MERGED` (or whose tasks were skipped). The status commit follows the mode: autonomous pushes it directly, unless `<base>` only accepts PRs; `--supervised` goes through its own small PR cut from the current `<base>`, which you also leave for the human and list in the final summary if it is still open when the run ends. `--supervised` advances to the next phase only when every PR of the phase is `MERGED`.
+5. While any PR is still `OPEN`, or was `CLOSED` without merging, and nothing else can proceed, list those PRs and stop again; a closed one needs `retry <task>` or `skip <task>`.
 
 ## Process
 
@@ -102,15 +105,15 @@ Tasks in one wave run concurrently — dispatch all their writers in a single me
 
 **e. Merge** (autonomous mode only). On `PASS` with the security gate clear, and the PR's tier T0 or T1:
 
-A **T2** PR that passed the review and the gate is not merged. Park it: status `awaiting-human-merge`, the PR left ready (not a draft), with a PR comment saying it is T2, why, and that the review and the gate passed. Its dependents wait (step 4); independent tasks continue. Autonomy covers T2 only if the user said so explicitly for T2 work in this run's request.
-
 - Wait for remote CI: `gh pr checks <n> --watch --fail-fast`. A failing check goes to the fix loop like a reviewer finding; a PR with no checks is fine only if the repo has none (no `.github/workflows/`, no required checks) — right after a push they may simply not have registered yet, so retry once after a short wait before concluding that. Commits pushed after a `PASS` that change behaviour need a fresh review first.
 - `gh pr merge <n> --rebase --delete-branch`. Do not `--squash`, which destroys the writer's logical commit split, unless the project's `CLAUDE.md` mandates it. If preflight showed rebase merges disabled, use `--merge` and say so.
 - If the branch no longer applies because `<base>` moved under a parallel wave, have the writer rebase and re-verify, then merge. A conflict that is not mechanical is a stop condition.
 - Remove the writer's worktree. Never reuse a merged branch.
 - `git pull --ff-only origin <base>`, so the next wave and your own status commits start from what was just merged.
 
-**f. Record** (after a merge only — in `--supervised` mode, or for a parked T2 PR, an open PR is not done). The PR's `Closes #N` closes the issue. When every task in a phase is merged — by you, or by the human in `--supervised` mode — tick the phase file's Phase Checklist, set the phase's Status to `Completed` in `docs/roadmap/README.md`, and land that as one `docs:` commit on an up-to-date `<base>`: pushed directly in autonomous mode (a status-only docs commit changes no behaviour, so it skips the PR and the review), or through a small PR when `<base>` only accepts PRs or the run is `--supervised`. A task's merged PR (step 4) and a phase's `Completed` status are what make an interrupted run resumable.
+A **T2** PR that passed the review and the gate is not merged. Park it: status `awaiting-human-merge`, the PR left ready (not a draft), with a PR comment saying it is T2, why, and that the review and the gate passed. Its dependents wait (step 4); independent tasks continue. Autonomy covers T2 only if the user said so explicitly for T2 work in this run's request. When every other task is done and only independent parked T2 PRs remain, the run ends: list them in the final summary as awaiting a human merge. No `continue` is needed; the human merges and, if they want the status commit, re-runs the command, which finds the merged PRs at step 4.
+
+**f. Record** (after a merge only — in `--supervised` mode, or for a parked T2 PR, an open PR is not done). The PR's `Closes #N` closes the issue. When every task in a phase is merged — by you, or by a human: in `--supervised` mode, or for a parked T2 PR — tick the phase file's Phase Checklist, set the phase's Status to `Completed` in `docs/roadmap/README.md`, and land that as one `docs:` commit on an up-to-date `<base>`: pushed directly in autonomous mode (a status-only docs commit changes no behaviour, so it skips the PR and the review), or through a small PR when `<base>` only accepts PRs or the run is `--supervised`. A task's merged PR (step 4) and a phase's `Completed` status are what make an interrupted run resumable.
 
 ### 6. Feature flags
 
@@ -162,7 +165,7 @@ Base: origin/<base> (run `git fetch origin` first)   Branch: <the branch name fr
 2. Implement exactly what the spec says. Record any judgement call in the PR body.
 3. Write tests at the layers above, covering every verification criterion in the spec. Vary the test data in whatever the code depends on (sizes, lengths, order, scale); uniform fixtures hide bugs. Before the PR, remove or break the behaviour each new test covers and see the test fail; a test that still passes is rewritten.
 4. Run lint, typecheck and tests; fix until all pass. No PR while any of them fails, and never `--no-verify`.
-5. Commit with conventional messages, split by logical concern. Push. Open a PR against <base> (PR title: imperative, no type prefix, under 70 characters) with: summary, spec link, `Closes #<N>` if there is an issue, a `## Risk` section (`T1 — <why>`, the tier from **Risk tiers** in your global `CLAUDE.md`, T2 if the diff touches any of its triggers), a security checklist when the change touches a trust boundary, and a test plan listing each verification criterion.
+5. Commit with conventional messages, split by logical concern. Push. Open a PR against <base> (PR title: imperative, no type prefix, under 70 characters) with: summary, spec link, `Closes #<N>` if there is an issue, a `## Risk` section (`T1 — <why>`, the tier from **Risk tiers** in your global `CLAUDE.md`, T2 if the diff touches any of its triggers), a security checklist when the change touches a security trigger (**Security triggers** in your global `CLAUDE.md`), and a test plan listing each verification criterion.
 6. Do not merge, force-push, or touch <base>.
 7. Report: branch, PR URL, the tail of each check, and any blocker.
 

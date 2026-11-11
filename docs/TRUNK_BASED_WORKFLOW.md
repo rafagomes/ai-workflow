@@ -10,9 +10,10 @@
 2. [Git Flow — the past](#git-flow--the-past)
 3. [Trunk-Based — the present (and future)](#trunk-based--the-present-and-future)
 4. [The seven rules](#the-seven-rules)
-5. [How the skills enforce it](#how-the-skills-enforce-it)
-6. [Recipes](#recipes)
-7. [FAQ](#faq)
+5. [Risk-tiered review](#risk-tiered-review)
+6. [How the skills enforce it](#how-the-skills-enforce-it)
+7. [Recipes](#recipes)
+8. [FAQ](#faq)
 
 ---
 
@@ -20,7 +21,7 @@
 
 Before AI, a developer produced maybe 2–5 meaningful diffs per day. A long-lived branch model (Git Flow) added friction, but the friction was absorbed into human thinking time.
 
-With AI in the loop, generation time collapses. A developer + Claude can produce dozens of shippable diffs per day. The bottleneck shifts: **review, merge, and integration become the slow path.** The 2025 DORA Report confirms this — PR review time rises ~91% in high-AI-adoption teams.
+With AI in the loop, generation time collapses. A developer + Claude can produce dozens of shippable diffs per day. The bottleneck shifts: **review, merge, and integration become the slow path.** Teams that adopt AI heavily report the same shift: more code written, and review time growing to absorb it.
 
 A branching model optimised for "protect main from incomplete work" (Git Flow) now *creates* the bottleneck. A branching model optimised for "integrate continuously, protect main with gates" (trunk-based) removes it.
 
@@ -81,7 +82,7 @@ main  ────●────●────●────●────�
 
 ## The seven rules
 
-These live in root `CLAUDE.md` → **Trunk-Based Workflow**. Every skill in this toolkit enforces them.
+These live in the global `CLAUDE.md` (`dotfiles/CLAUDE.md` in this repo) → **Trunk-Based Workflow**. Every skill in this toolkit enforces them.
 
 1. **One trunk.** `main` only. No `develop`, no `release/*`. If you need to stabilise for a release, use a tag + a feature flag, not a branch.
 
@@ -89,7 +90,7 @@ These live in root `CLAUDE.md` → **Trunk-Based Workflow**. Every skill in this
 
 3. **Typed branch names.** `feat/<slug>`, `fix/<slug>`, `refactor/<slug>`, `docs/<slug>`, `chore/<slug>`, `test/<slug>`, `perf/<slug>`, `build/<slug>`, `ci/<slug>`, `security/<slug>`. The prefix tells reviewers what lens to apply.
 
-4. **One branch = one PR = one concern.** A PR is one vertical slice a reviewer can hold in one pass. Size is a signal, not a quota: past roughly **500 added source lines**, ask whether it is really one concern, and split it if it is two. Tests, generated files, lockfiles, pure moves and deletions do not count. Do not cut one concern into several PRs to get under the number — PRs that only make sense together cost more review than one coherent PR.
+4. **One branch = one PR = one concern.** A PR is one vertical slice a reviewer can hold in one pass. One concern is the rule; size is only a signal. Past roughly **1,000 added source lines or ~40 changed source files**, check it is still one concern, and split it if it is two. Tests, generated files, lockfiles, pure moves and deletions do not count. Never cut one concern into several PRs to get under the number — PRs that only make sense together cost more review than one coherent PR. How deep the review goes depends on risk, not size (see [Risk-tiered review](#risk-tiered-review)).
 
 5. **Vertical slicing.** A "feature" that's too big becomes N slices, each end-to-end (DB → API → UI for *one* capability), each independently mergeable. Never horizontal (all DB first, then all API). Horizontal slices pile up un-shippable state.
 
@@ -99,19 +100,35 @@ These live in root `CLAUDE.md` → **Trunk-Based Workflow**. Every skill in this
 
 ---
 
+## Risk-tiered review
+
+Review depth scales with **blast radius** and **reversibility**, not with line count. A 4-line change to an authorization check can take a system down or open it up; 1,400 lines of mechanical renames cannot. Every PR gets a tier, defined once in the global `CLAUDE.md` → **Risk tiers**:
+
+| Tier | What | Review |
+|------|------|--------|
+| **T0** | Typo, spelling or formatting in prose, a changelog entry, a version bump. Never text that instructs an agent. | Skipped |
+| **T1** | An ordinary change. | One fresh-context `wf:reviewer` pass |
+| **T2** | Touches a security trigger (trust boundary, auth, crypto, input parsing, secrets, permissions, dependencies, anything that runs automatically), a data migration or schema change, CI/CD, deploy or infra config, a public API or contract, a shared core module, or anything hard to reverse. | Reviewer, plus `/security-review` where a security trigger applies, plus **a human merges** |
+
+Highest matching tier wins; when unsure, the higher one. The tier is declared in the spec or roadmap task (`**Risk:**`), re-derived from the diff by `/wf:feature` and `/wf:fix`, written into the PR body's `## Risk` section, and assessed independently by the reviewer (its `RISK:` line). An understated tier is a `MED` finding.
+
+**Why this shape.** Humans no longer read every line, so their attention is the scarce resource; spend it where a mistake is expensive or cannot be undone, and let the evidence (a cold-context reviewer, the project's checks, the security gate) carry the rest. A blanket merge authorization such as `/wf:autopilot` autonomous therefore stops short of T2: `/wf:autopilot` parks a passing T2 PR as `awaiting-human-merge` and carries on with independent work.
+
+---
+
 ## How the skills enforce it
 
 This toolkit is wired so the trunk-based rules are defaults, not discipline:
 
 | Skill | What it enforces |
 |-------|------------------|
-| **`/wf:spec`** | If the feature is estimated at over ~500 source lines and is more than one concern, produces N sub-specs under `docs/specs/<feature>/NNN_<slice>.md` with an index. Each sub-spec has a `## Feature Flag` section. |
-| **`/wf:feature`** | Requires a typed branch (`feat/<slug>`). Runs a slice-size gate (`git diff --numstat`, added source lines) — stops and asks when the change is over ~500 lines and more than one concern. Verifies the feature flag wiring from the spec. Implements sliced specs one slice at a time. |
-| **`/wf:fix`** | Requires `fix/<slug>`. Same slice-size gate. |
+| **`/wf:spec`** | If the feature is estimated at over ~1,000 source lines and is more than one concern, produces N sub-specs under `docs/specs/<feature>/NNN_<slice>.md` with an index. Each sub-spec has a `## Feature Flag` section. Records a risk tier per spec and slice. |
+| **`/wf:feature`** | Requires a typed branch (`feat/<slug>`). Runs a slice-size gate (`git diff --numstat`, added source lines and changed files) — stops and asks when the change is past ~1,000 lines or ~40 files and more than one concern. Checks the risk tier against the diff. Verifies the feature flag wiring from the spec. Implements sliced specs one slice at a time. |
+| **`/wf:fix`** | Requires `fix/<slug>`. Same slice-size gate and tier check. |
 | **`/wf:commit`** | One concern per commit. Each commit leaves the tree green. |
-| **`/wf:pr`** | Validates the branch name against the convention. Warns when the diff is over ~500 source lines and more than one concern. Prints the post-merge cleanup command (branch delete + worktree remove). |
+| **`/wf:pr`** | Validates the branch name against the convention. Warns when the diff is past ~1,000 source lines or ~40 files and more than one concern. Requires a `## Risk` section and passes the tier to the reviewer; a T2 PR is reported as needing a human merge. Prints the post-merge cleanup command (branch delete + worktree remove). |
 | **`/wf:roadmap`** | "One task = one PR." Phases are independently mergeable units. |
-| **`/wf:autopilot`** | Executes phases via worktrees — natural fit for parallel, short-lived branches. |
+| **`/wf:autopilot`** | Executes phases via worktrees — natural fit for parallel, short-lived branches. Merges T0 and T1 PRs; parks T2 PRs for a human merge. |
 
 Nothing is configured in `git` itself. The rules live in docs + skill gates + (optionally) GitHub branch protection. Portable, reversible, visible.
 
@@ -199,14 +216,14 @@ The old Git Flow pattern of "cherry-pick hotfix to master and merge down to deve
 **Q: How do we do releases without `release/*` branches?**
 A: Tag `main` at the point you want to release (`git tag v1.4.0`). Deploy from the tag. If you need to patch the release, cherry-pick onto a short-lived `fix/<slug>` branch, re-tag (`v1.4.1`), re-deploy. No long-lived release branch required.
 
-**Q: What if my PR is 800 lines and I can't reasonably split it?**
-A: First ask whether it is one concern. If it is two, split it — vertically, so each half is mergeable on its own. If it is genuinely one (a rename that touches many files, a feature whose parts are meaningless apart), ship it as one PR and say why in the description. The 500-line mark is a prompt to ask the question, not a block: `/wf:feature` and `/wf:pr` flag it and you can override. The number was 200 when a human read every line; with a fresh-context reviewer on every PR, a string of tiny PRs costs more in review rounds and merge overhead than it saves.
+**Q: What if my PR is 1,400 lines and I can't reasonably split it?**
+A: First ask whether it is one concern. If it is two, split it — vertically, so each half is mergeable on its own. If it is genuinely one (a rename that touches many files, a feature whose parts are meaningless apart), ship it as one PR and say why in the description. The ~1,000 lines or ~40 files mark is a prompt to ask the question, not a block: `/wf:feature` and `/wf:pr` flag it and you can override. Size does not set the review depth, risk does: 1,400 mechanical lines are T1, while a 40-line change to a migration or an auth check is T2 and gets a human merge. The size number was 200 when a human read every line, then ~500; with a fresh-context reviewer on every PR, a string of tiny PRs costs more than it saves.
 
 **Q: We don't have feature flags. Do we need a whole system?**
 A: No. A `const FEATURE_X_ENABLED = false` in a config file is a feature flag. Grow into a proper flag service (LaunchDarkly, Unleash, homegrown) only when you need runtime toggles, percentage rollouts, or per-user targeting. Most teams over-engineer this.
 
 **Q: Won't small PRs flood reviewers?**
-A: They flood less than big PRs. Small PRs review in minutes; big PRs bounce between author and reviewer for days. Throughput goes up. Tooling matters too — auto-assign reviewers, require only one approval for small changes, use merge queues.
+A: With AI reviewers the cost per PR is roughly constant: a cold-context review loads the spec, the diff and the surrounding code however small the change is. Many tiny PRs therefore cost more rounds and more merge overhead, and the fragments often make no sense apart. What matters is one concern per PR and the risk tier. Slice when there are two concerns or a T2 change you want isolated so a human can merge it on its own; do not slice to hit a line count.
 
 **Q: How does this work with multiple worktrees at once?**
 A: Perfectly — it's the reason worktrees exist. Each slice gets its own worktree (under `.claude/worktrees/`), its own branch, its own Claude session. You can run 3–5 in parallel without context collisions. See `/wf:autopilot` for the agent-orchestrated version.
@@ -229,5 +246,5 @@ Nothing in this toolkit *requires* it; the rules work on discipline alone. But f
 ## Further reading
 
 - [Trunk-Based Development](https://trunkbaseddevelopment.com/) — the canonical reference
-- [DORA Report](https://cloud.google.com/devops/state-of-devops) — data on trunk-based vs other models
-- Root `CLAUDE.md` → **Trunk-Based Workflow** — the terse rules
+- [DORA research](https://dora.dev/capabilities/trunk-based-development/) — the trunk-based development capability and its link to delivery performance
+- The global `CLAUDE.md` (`dotfiles/CLAUDE.md`) → **Trunk-Based Workflow** and **Risk tiers** — the terse rules

@@ -271,12 +271,14 @@ allowed 'ls -la'
 allowed ''
 allowed 'echo "unterminated'
 
-# --- a command over 1 MB is blocked (too large to inspect), a big one under it is not
+# --- a command over 128 KB is blocked (too large to inspect), a big one under it is not
 big() { printf '{"tool_name":"Bash","tool_input":{"command":"echo '; head -c "$1" /dev/zero | tr '\0' 'a'; printf '"}}'; }
 RC=0; ERR="$(big 1100000 | "$BASH_BIN" "$GUARD" 2>&1 >/dev/null)" || RC=$?
 if [ "$RC" -eq 2 ] && [[ "$ERR" == *"[too-large]"* ]]; then ok; else fail "over 1 MB should be blocked (rc=$RC)"; fi
-RC=0; big 300000 | "$BASH_BIN" "$GUARD" >/dev/null 2>&1 || RC=$?
-if [ "$RC" -eq 0 ]; then ok; else fail "300 KB word should be allowed (rc=$RC)"; fi
+RC=0; ERR="$(big 200000 | "$BASH_BIN" "$GUARD" 2>&1 >/dev/null)" || RC=$?
+if [ "$RC" -eq 2 ] && [[ "$ERR" == *"[too-large]"* ]]; then ok; else fail "200 KB should be blocked (rc=$RC)"; fi
+RC=0; big 100000 | "$BASH_BIN" "$GUARD" >/dev/null 2>&1 || RC=$?
+if [ "$RC" -eq 0 ]; then ok; else fail "100 KB word should be allowed (rc=$RC)"; fi
 
 # --- more than 500 git commit/push or gh pr review segments in one call is blocked
 many=""
@@ -288,13 +290,13 @@ allowed "$many"
 
 # --- crafted inputs finish well inside the hook timeout (a timeout does not block)
 if command -v jq >/dev/null 2>&1 && [[ "$(date +%s%N)" =~ ^[0-9]+$ ]]; then
-    timed_blocked() { # timed_blocked <label> <command>
-        local t0 t1 ms
+    timed_blocked() { # timed_blocked <label> <command> [limit ms]
+        local t0 t1 ms limit="${3:-2000}"
         t0=$(date +%s%N)
         ERR="$(printf '%s' "$2" | jq -Rs '{tool_name:"Bash",cwd:"/tmp",tool_input:{command:.}}' | "$BASH_BIN" "$GUARD" 2>&1 >/dev/null)"; RC=$?
         t1=$(date +%s%N); ms=$(( (t1 - t0) / 1000000 ))
         if [ "$RC" -ne 2 ]; then fail "$1 should be blocked (rc=$RC)"
-        elif [ "$ms" -ge 2000 ]; then fail "$1 took ${ms} ms"
+        elif [ "$ms" -ge "$limit" ]; then fail "$1 took ${ms} ms (limit $limit)"
         else ok; fi
     }
     rep() { yes "$1" | head -n "$2" | tr -d '\n'; }
@@ -302,6 +304,35 @@ if command -v jq >/dev/null 2>&1 && [[ "$(date +%s%N)" =~ ^[0-9]+$ ]]; then
     timed_blocked "1 MB of git push words" "$(rep 'git push ' 100000)"
     timed_blocked "gh pr review words" "$(rep 'gh pr review ' 80000); gh pr review --approve"
     timed_blocked "git words with a flag at the end" "$(rep 'git commit ' 2000) --no-verify"
+    # the hook timeout is non-blocking, so the worst crafted inputs must still be blocked in time
+    timed_blocked "32-letter short-flag groups" "$(rep 'git commit -abcdefghijklmnopqrstuvwxyzabcdef ' 2800); git commit --no-verify" 7000
+    timed_blocked "--xx words through is_opt" "$(rep 'git commit --xx ' 7500); git commit --no-verify" 7000
+    timed_blocked "one huge --aaa word" "git commit --$(head -c 120000 /dev/zero | tr '\0' a) --no-verify" 7000
+    timed_blocked "one huge --aaa word after push" "git push --$(head -c 120000 /dev/zero | tr '\0' a); git push -f origin main" 7000
+    timed_blocked "cd a cd a ..." "$(rep 'cd a ' 24000); git commit --no-verify" 7000
+    # the same shapes at the old 1 MB cap: blocked at once by the 128 KB cap, not after seconds of work
+    timed_blocked "900 KB of 32-letter short-flag groups" "$(rep 'git commit -abcdefghijklmnopqrstuvwxyzabcdef ' 24000); git commit --no-verify" 3000
+    timed_blocked "900 KB of --xx words" "$(rep 'git commit --xx ' 55000); git commit --no-verify" 3000
+    timed_blocked "one 900 KB --aaa word" "git commit --$(head -c 900000 /dev/zero | tr '\0' a) --no-verify" 3000
+    timed_blocked "750 KB of cd a" "$(rep 'cd a ' 150000); git commit --no-verify" 3000
+    timed_blocked "cd with a long path" "cd $(head -c 100000 /dev/zero | tr '\0' a); git commit --no-verify" 7000
+fi
+
+# --- the analysis runs under a deadline and a timeout blocks (exit 0 or 2 only)
+mkdir -p "$TMP/tmo124" "$TMP/tmo137" "$TMP/tmo1"
+printf '#!/bin/sh\nexit 124\n' > "$TMP/tmo124/timeout"; chmod +x "$TMP/tmo124/timeout"
+printf '#!/bin/sh\nexit 137\n' > "$TMP/tmo137/timeout"; chmod +x "$TMP/tmo137/timeout"
+printf '#!/bin/sh\nexit 1\n' > "$TMP/tmo1/timeout"; chmod +x "$TMP/tmo1/timeout"
+for d in tmo124 tmo137; do
+    RC=0; ERR="$(payload 'ls' "$REPO_T" | PATH="$TMP/$d:$PATH" "$BASH_BIN" "$GUARD" 2>&1 >/dev/null)" || RC=$?
+    if [ "$RC" -eq 2 ] && [[ "$ERR" == *"[too-slow]"* ]]; then ok; else fail "a timed-out analysis ($d) should block (rc=$RC, $ERR)"; fi
+done
+RC=0; ERR="$(payload 'ls' "$REPO_T" | PATH="$TMP/tmo1:$PATH" "$BASH_BIN" "$GUARD" 2>&1 >/dev/null)" || RC=$?
+if [ "$RC" -eq 0 ] && [[ "$ERR" == *"guard failed"* ]]; then ok; else fail "a crashed analysis should fail open with a warning (rc=$RC, $ERR)"; fi
+# the real deadline: 1 ms is far too short to finish, so the command is blocked
+RC=0; ERR="$(payload 'ls' "$REPO_T" | WF_GUARD_TIMEOUT=0.001 "$BASH_BIN" "$GUARD" 2>&1 >/dev/null)" || RC=$?
+if command -v timeout >/dev/null 2>&1 || command -v gtimeout >/dev/null 2>&1; then
+    if [ "$RC" -eq 2 ] && [[ "$ERR" == *"[too-slow]"* ]]; then ok; else fail "a 1 ms deadline should block (rc=$RC, $ERR)"; fi
 fi
 
 # --- non-Bash tool calls and bad input are not blocked

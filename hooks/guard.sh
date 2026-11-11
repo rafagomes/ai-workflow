@@ -7,8 +7,10 @@
 #   trunk-force-push    force-pushes the trunk (main, master or the origin default branch)
 #   trunk-delete        deletes the trunk on the remote
 #   pr-approve          runs `gh pr review --approve` (approving is the human's call)
-#   too-large           the command is over 1 MB, has over 500 git/gh segments, or
+#   too-large           the command is over 128 KB, has over 500 git/gh segments, or
 #                       more than 100000 words follow its git/gh words (too much to inspect)
+#   too-slow            the analysis did not finish in 5 s (a hook timeout does not block,
+#                       so the guard enforces its own deadline and fails closed)
 #
 # This is a guardrail against mistakes, not a security boundary. It does not
 # parse shell. It reads the command as raw text: quotes, backslashes and
@@ -29,6 +31,9 @@
 # session. Not covered: variables, aliases, git aliases, `git -c core.hooksPath`,
 # scripts, `gh api`, and a command split by quotes inside a word (`g"i"t`).
 #
+# The analysis runs in a child under `timeout` (`gtimeout` on macOS); without either
+# binary only the size caps bound the work. WF_GUARD_TIMEOUT overrides the 5 s.
+#
 # Fails open: with neither jq nor python3, or JSON it cannot parse, the command is
 # allowed and a one-line warning goes to stderr, so a missing tool never bricks a
 # session. Escape hatch: WF_GUARD=off in the hook's own environment (set it in the
@@ -36,10 +41,32 @@
 
 US=$'\037'   # separator between the words of a segment
 
+deny() { # deny <rule> <message>
+    printf 'wf guard [%s]: %s (WF_GUARD=off in settings env disables the guard)\n' "$1" "$2" >&2
+    exit 2
+}
+
 warn_open() { echo "wf guard: $1; guardrails skipped for this command" >&2; exit 0; }
 
 input=$(cat)   # always drain stdin, even when the guard is off
 [ "${WF_GUARD:-}" = "off" ] && exit 0
+[ ${#input} -le 1048576 ] || deny too-large "the hook input is over 1 MB, too big to inspect; split the command up"
+
+# Deadline: run the analysis in a child under timeout (gtimeout on macOS), and
+# block when it does not finish, because a hook that times out is not blocking.
+# Without either binary only the size caps bound the work. Exits 0 or 2 only.
+if [ -z "${WF_GUARD_INNER:-}" ]; then
+    tmo=$(command -v timeout || command -v gtimeout) || tmo=""
+    if [ -n "$tmo" ]; then
+        printf '%s' "$input" | WF_GUARD_INNER=1 "$tmo" -k 1 "${WF_GUARD_TIMEOUT:-5}" bash "${BASH_SOURCE[0]}"
+        rc=$?
+        case $rc in
+            0|2) exit $rc ;;
+            124|137|143) deny too-slow "the command took too long to inspect; split it up or write it to a script file" ;;
+            *) warn_open "the guard failed (exit $rc)" ;;
+        esac
+    fi
+fi
 json_field() { # json_field <jq-path> <dotted-key>
     if command -v jq >/dev/null 2>&1; then
         printf '%s' "$input" | jq -r "$1 // empty" 2>/dev/null
@@ -62,11 +89,7 @@ command_str=$(json_field .tool_input.command tool_input.command) || warn_open "c
 WD=$(json_field .cwd cwd) || WD=""
 [ -n "$WD" ] || WD="."
 
-deny() { # deny <rule> <message>
-    printf 'wf guard [%s]: %s (WF_GUARD=off in settings env disables the guard)\n' "$1" "$2" >&2
-    exit 2
-}
-[ ${#command_str} -le 1048576 ] || deny too-large "the command is over 1 MB, too big to inspect; split it up or write it to a script file"
+[ ${#command_str} -le 131072 ] || deny too-large "the command is over 128 KB, too big to inspect; split it up or write it to a script file"
 
 git_dir() { git -C "$WD" "$@" 2>/dev/null; }
 
@@ -87,6 +110,7 @@ is_trunk() {
 # is_opt <word> <long option without --> <min length>: the word is that long option
 # or an abbreviation of it (git accepts unambiguous prefixes), with or without =value.
 is_opt() {
+    [ ${#1} -le 64 ] || return 1   # no long option is that long; the expansions are quadratic on huge words
     local w="${1#--}"
     w="${w%%=*}"
     [ ${#w} -ge "$3" ] && [ ${#w} -le ${#2} ] && [[ "$2" == "$w"* ]]
@@ -266,6 +290,7 @@ check_segment() { # check_segment <words joined by $US>
             cd)
                 if [ $i -lt ${#T[@]} ] && [ "${T[$i]}" != "-" ]; then
                     case "${T[$i]}" in /*) WD="${T[$i]}" ;; *) WD="$WD/${T[$i]}" ;; esac
+                    [ ${#WD} -le 4096 ] || deny too-large "the working directory path is too long to track; use shorter paths"
                 fi ;;
             git)
                 charge

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Python project on a feature branch with three unrelated pending changes
 # (a bug fix, a new module, a docs edit) and an untracked .env.
+# shellcheck disable=SC2016  # fixture text is literal on purpose
 set -euo pipefail
 git init -q -b main
 git config user.email eval@example.com

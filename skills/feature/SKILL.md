@@ -40,7 +40,7 @@ Worktree conventions are in your global `CLAUDE.md` (Trunk-Based Workflow).
 
    Place each test by what it covers, mirroring the project's `unit/` and `integration/` split: a test that crosses a real boundary is integration even if it runs fast, and pure logic is unit. Misplaced tests drift out of the slow-path CI filter and stop catching boundary regressions.
 
-3. **Plan if non-trivial.** If the change touches 3+ files or has non-obvious design decisions, use Plan Mode to align before writing code.
+3. **Plan if non-trivial.** If the change touches 3+ files or has non-obvious design decisions, align before writing code: interactive, use Plan Mode; headless (a dispatched writer cannot enter Plan Mode), write the plan in the final report, and in the PR body when `--pr` is used.
 
 4. **Implement with tests, layer by layer.** Unit, then integration, then e2e. Run each layer and fix failures before moving on. Vary the test data in whatever the code depends on (sizes, lengths, order, scale); uniform fixtures hide bugs. Before the quality checks, remove or break the behaviour each new test covers and see the test fail; rewrite a test that still passes.
 

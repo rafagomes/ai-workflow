@@ -166,6 +166,7 @@ echo "    claude plugin install wf@ai-workflow"
 if [ "$INSTALL_CODEX" -eq 1 ]; then
     echo "  and for Codex:"
     echo "    codex plugin marketplace add rafagomes/ai-workflow"
-    echo "    then install wf from /plugins in a new session and trust its hook in /hooks"
+    echo "    codex plugin add wf@ai-workflow     (or install wf from /plugins)"
+    echo "    then start a NEW Codex session and trust the hook in /hooks"
 fi
 echo ""

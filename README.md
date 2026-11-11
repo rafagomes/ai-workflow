@@ -54,11 +54,12 @@ The same skills, hook and reviewer also run in [OpenAI Codex](https://developers
 codex plugin marketplace add rafagomes/ai-workflow
 ```
 
-Then, in a new Codex session:
+Codex loads a plugin only in a session started after it is installed, so install first and then start a new session:
 
-1. Open `/plugins`, find the `ai-workflow` marketplace and install `wf`.
-2. Open `/hooks` and trust the plugin's guardrail hook. Codex runs no hook before you have reviewed it.
-3. Invoke a skill as `$feature rate-limiting` or pick it from `/skills`. Codex also starts a skill by itself when your request matches its description, except `autopilot` and `new-project`, which are explicit-only (`agents/openai.yaml` sets `allow_implicit_invocation: false`).
+1. Install `wf`: open `/plugins`, find the `ai-workflow` marketplace and install it, or run `codex plugin add wf@ai-workflow`.
+2. Start a new Codex session.
+3. Open `/hooks` and trust the plugin's guardrail hook. Codex runs no hook before you have reviewed it.
+4. Invoke a skill as `$feature rate-limiting` or pick it from `/skills`. Codex also starts a skill by itself when your request matches its description, except `autopilot` and `new-project`, which are explicit-only (`agents/openai.yaml` sets `allow_implicit_invocation: false`).
 
 A plugin cannot carry a global instructions file or custom agents, so for those clone the repo and run the installer with `--codex`:
 
@@ -77,7 +78,7 @@ What differs from Claude Code:
 
 - `/wf:autopilot` needs Claude Code (worktree-isolated writers, resuming agents, scheduled resumes). In Codex run `$feature` per task instead.
 - Codex has no `AskUserQuestion`, worktree isolation or `SendMessage`, and Codex custom agents are not shipped by plugins, which is why the reviewer needs `./install.sh --codex`.
-- The skill text still names Claude Code tools and `CLAUDE.md` in places; a Codex session reads those as the equivalent Codex mechanism.
+- `/wf:autopilot` is the only Claude Code-only skill. The others fall back to asking their questions in chat where Codex has no `AskUserQuestion`, read `AGENTS.md` as well as `CLAUDE.md`, and dispatch the `wf-reviewer` agent.
 
 ## What you get
 

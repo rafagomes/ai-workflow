@@ -22,7 +22,7 @@ Description tweaks, typo fixes and example additions skip it. Use judgment.
 
 ## What is in the suite
 
-`evals/<case>/` holds one case: a `case.yaml` (prompt, limits, graders) and a `scaffold.sh` that builds a throwaway git repository for it. Every case is tagged with its skill, and none needs a network, GitHub or a remote.
+`evals/<case>/` holds one case: a `case.yaml` (prompt, limits, graders) and a `scaffold.sh` that builds a throwaway git repository for it. Every case is tagged with its skill, and none needs a network or GitHub.
 
 | Case | Tag | What it checks |
 |---|---|---|
@@ -88,13 +88,15 @@ Each case prints a score (the weighted fraction of graders that passed, averaged
 - **Read the transcript, not only the number.** The HTML report links each run's trace. Numbers miss style: whether the commit plan was sensible, whether the root-cause sentence was true.
 - **One run is noise.** Before shipping a change on the strength of a delta, rerun with `--runs 3` or more.
 - If the progress output says a tool was `not granted`, or a `tool_used` grader with `max: 0` passes with `Bash called 0x`, the tool never ran: check both halves of the grant (above). The graders that guard against a forbidden command only mean something when `Bash` really ran.
+- **`permission denied: git` is a known, unresolved problem.** Recognise it by `permission denied: git` (or `permission denied: /usr/bin/git`) in the trace, `/usr/bin/git` showing as a character device (`crw-rw-rw- nobody nobody 1,3`, a `/dev/null` mask) when the agent lists it, and every git-based grader failing or throwing `does not exist`, even with `Bash` granted both ways. It was observed when `claude plugin eval` was started from inside an agent session. The git-dependent cases (`commit`, `feature`, `fix`, and the `pr` stops in substance) have **not yet been shown to pass** from a plain terminal; only the non-git parts were exercised. Run one from a plain terminal first and check `git --version` there (2.31 or later is required):
+  `claude plugin eval . --case commit-one-concern-shell --runs 1 --ablation none --no-publish --scaffold --trust-plugin --allow-tools Bash Write Edit --max-cost-usd 1`
 - A `grader threw ... does not exist` line means the run never produced the file the grader reads: usually a tool was not granted, or the agent stopped early. Look at the trace.
 
 ## How to add a case
 
 1. Pick the behaviour the skill adds over plain Claude. If a no-skill run would do it anyway, it is a weak case.
 2. Make `evals/<skill>-<what-it-checks>/` with a `case.yaml` and a `scaffold.sh`. Start from `claude plugin eval init --bare <name>` if you want the blank template; the files here use the single-file `case.yaml` form (`schema_version: "1.1"`).
-3. The scaffold builds a tiny repository: varied fixtures (different languages, a Makefile `test` or `lint` target), no network, no remote. It runs in the empty workspace with a minimal environment, and a non-zero exit fails the run.
+3. The scaffold builds a tiny repository: varied fixtures (different languages, a Makefile `test` or `lint` target), no network. It builds a local bare `origin` inside the workspace (`git init --bare "$PWD/.git/origin.git"`, `git remote add origin`, push `main`, `git remote set-head origin main`) because the skills resolve the trunk through `origin` (`origin/HEAD`, `git fetch origin`, `merge-base origin/<base>`); copy the block from an existing scaffold. It runs in the empty workspace with a minimal environment, and a non-zero exit fails the run.
 4. Write the prompt the way a user would, and say that the run is non-interactive so the agent takes recommended defaults instead of waiting. Do not name the skill; the `skill-fired` grader tells you whether it loaded.
 5. Prefer deterministic graders, and list every tool the skill needs in the case's `allowed_tools` (it must also be granted with `--allow-tools`). There is no command grader, so for state that only a command can show (commits, the result of running code), end the prompt with a line asking the agent to write it to a file (`git log ... > eval-commits.txt`) and grade the file with a `regex` grader using `target: { source: file, path: ... }`.
 6. Tag the case with the skill, keep `max_turns` and `timeout_seconds` tight, and check the case can fail: break the behaviour (or run the baseline arm) and see the grader go red.

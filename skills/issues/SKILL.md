@@ -35,7 +35,7 @@ Every read and write goes through `gh`. Run `gh auth status` once at the start; 
 
 ## Asking the user
 
-Use `AskUserQuestion` at each decision point: structured options are unambiguous where "ok"/"go" is not. First option is the recommendation; "Other" means the user is correcting you, so re-plan. Batch decisions needed back-to-back into one call. Where AskUserQuestion is unavailable (e.g. in Codex), ask the same question in chat as a short numbered list and wait for the answer.
+Use `AskUserQuestion` at each decision point: structured options are unambiguous where "ok"/"go" is not. First option is the recommendation; "Other" means the user is correcting you, so re-plan. Batch decisions needed back-to-back into one call. Where AskUserQuestion is unavailable but the user can answer in chat (e.g. Codex), ask the same question in chat as a short numbered list and wait for the answer; a headless run or a dispatched agent has no such user, and the headless rule applies instead.
 
 - **Reconcile** (drifted or closed issues found): Update in place (recommended) / Close + refile / Skip.
 - **Horizon** (roadmap index only): Current + next phase (recommended) / Full roadmap. Asked first, because everything after it is planned only for the phases in the horizon.
@@ -43,7 +43,7 @@ Use `AskUserQuestion` at each decision point: structured options are unambiguous
 - **Proceed?** (dry-run confirmation): Yes / Cancel.
 - **Next phase** (after each milestone batch, only when the user chose Full roadmap): Yes, continue / Stop here.
 
-If the user cannot be asked (a headless run), do not file anything: print the dry-run plan and stop. Creating milestones and issues is outward-facing, so only the user's own answer approves it.
+If `AskUserQuestion` is unavailable (a headless run), do not file anything: print the dry-run plan and stop. Creating milestones and issues is outward-facing, so only the user's own answer approves it.
 
 ## Preflight
 

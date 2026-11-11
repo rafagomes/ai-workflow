@@ -21,7 +21,7 @@ Before interviewing, understand the system's security surface:
 
 ## Interview
 
-Use AskUserQuestion, asking only what the code and docs do not answer, in rounds of at most 3-4 questions. Where AskUserQuestion is unavailable (e.g. in Codex), ask the same question in chat as a short numbered list and wait for the answer. If the user cannot be asked (a headless run), write from what exists and list each assumption as an open question.
+Use AskUserQuestion, asking only what the code and docs do not answer, in rounds of at most 3-4 questions. Where AskUserQuestion is unavailable but the user can answer in chat (e.g. Codex), ask the same question in chat as a short numbered list and wait for the answer; a headless run or a dispatched agent has no such user, and the headless rule applies instead. If the user cannot be asked (a headless run), write from what exists and list each assumption as an open question.
 
 1. **Trust boundaries** — What is trusted? What is untrusted? Where are the boundaries?
 2. **Authentication** — How do users/agents/services prove identity? What mechanisms exist today?

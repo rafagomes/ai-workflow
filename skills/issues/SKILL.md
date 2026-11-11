@@ -37,7 +37,7 @@ Use `AskUserQuestion` at each decision point: structured options are unambiguous
 
 - **Reconcile** (drifted or closed issues found): Update in place (recommended) / Close + refile / Skip.
 - **Horizon** (roadmap index only): Current + next phase (recommended) / Full roadmap.
-- **Hidden sequencing** (shared files with no declared dependency, see Preflight step 6): one question per pair, or one for all of them: Add the dependency (recommended) / Keep as-is.
+- **Hidden sequencing** (shared files with no declared dependency, see Preflight step 5): one question per pair, or one for all of them: Add the dependency (recommended) / Keep as-is.
 - **Proceed?** (dry-run confirmation): Yes / Cancel.
 - **Next phase** (after each milestone batch, only when the user chose Full roadmap): Yes, continue / Stop here.
 
@@ -47,17 +47,17 @@ If `AskUserQuestion` is unavailable (a headless run), do not file anything: prin
 
 1. **`gh auth status`** (above). Stop if it fails.
 2. **Confirm a GitHub remote:** `gh repo view --json nameWithOwner` must succeed (this also covers GitHub Enterprise). If not, stop.
-3. **Read the source file(s) top to bottom.** Collect `Type`, `Complexity`, `Risk`, `Flag`, `Depends on`, `Files`, `Spec` and the existing `Issue` / `Issues` values from the Tasks and Slices tables and Trunk Metadata. Read a Slices table by its column headers, not by position (the `Risk` column was added between `Complexity` and `Issue`). A source with no `Risk` (an older spec) gets no `risk:*` label.
-4. **Detect already-filed issues.**
+3. **Read the source file(s) top to bottom.** Collect `Type`, `Complexity`, `Risk`, `Flag`, `Depends on`, `Spec` and the existing `Issue` / `Issues` values from the Tasks and Slices tables and Trunk Metadata. Read a Slices table by its column headers, not by position (the `Risk` column was added between `Complexity` and `Issue`). A source with no `Risk` (an older spec) gets no `risk:*` label. A slice's files (and a single-file spec's) are in its spec's `### Affected Files`; for a task with a single-file spec or no spec, fall back to the roadmap task's `Files`. A roadmap task that points at a sliced spec has a task-level `Files` that spans slices, so do not use it per slice.
+4. **Fetch existing milestones** and match them against the phase titles so reruns are idempotent.
+5. **Plan waves, per milestone,** from each task's or slice's `Depends on` and files (as collected in step 3), by the rule in `/wf:autopilot` step 4 (Plan waves): no dependency between tasks, no file in common, at most 5 per wave, and a task with no file list runs alone. Do not restate or adapt that rule here. Then check for **hidden sequencing**:
+   - Two tasks or slices that share a file but declare no dependency cannot run in parallel, so the plan serialises them. List every such pair.
+   - If the roadmap's `## Execution Order` marks as parallel tasks that rule says cannot be, list those too.
+   - Ask **Hidden sequencing** (asked here, before Reconcile and Proceed, so the counts and the dry-run see the final plan): add a dependency in the source doc (recommended: the later task in roadmap order depends on the earlier one), or keep as-is and let the wave plan serialise them. Never edit the source's dependencies without the user's answer; an added dependency is written to the source and the waves recomputed. Headless: file nothing, just print the list.
+6. **Detect already-filed issues.**
    - For each row with a `#<N>`, run `gh issue view`. Classify it `match` (aligned with the source), `drift` (title, labels, milestone or body need an update) or `gone` (closed or deleted). The body's Dependencies section matches when every task or slice in `Depends on` appears as its filed `#N` and every phase as `Needs all of <milestone title>`; an `Also needs:` sentence is never drift, and an update in place keeps it.
    - For rows with no `Issue` value, search open and closed issues by title prefix (`gh issue list --state all --search "[003.2] in:title"`). Adopt a match instead of creating a duplicate: a previous run may have died between creating the issue and the writeback.
-   - The body also matches only when its `## Parallelization` section and the milestone's `Execution waves` block equal the plan from step 6. A change to dependencies or files is drift, and the waves and peers are recomputed.
+   - The body also matches only when its `## Parallelization` section and the milestone's `Execution waves` block equal the final plan from step 5. A change to dependencies or files is drift, and the waves and peers are recomputed.
    - Print `X rows already filed: Y match / Z drift / W gone`, then ask the **Reconcile** question. If the user names specific rows under "Other", re-plan per row.
-5. **Fetch existing milestones** and match them against the phase titles so reruns are idempotent.
-6. **Plan waves, per milestone,** from each task's `Depends on` and `Files`, by the rule in `/wf:autopilot` step 4 (Plan waves): no dependency between tasks, no file in common, at most 5 per wave, and a task with no file list runs alone. Do not restate or adapt that rule here. Then check for **hidden sequencing**:
-   - Two tasks that share a file but declare no dependency cannot run in parallel, so the plan serialises them. List every such pair.
-   - If the roadmap's `## Execution Order` marks as parallel tasks that rule says cannot be, list those too.
-   - Ask **Hidden sequencing** (batched with the other questions): add a dependency in the source doc (recommended: the later task in roadmap order depends on the earlier one), or keep as-is and let the wave plan serialise them. Never edit the source's dependencies without the user's answer; an added dependency is written to the source and the waves recomputed. Headless: file nothing, just print the list.
 7. **Dry-run.** Print everything that will be created or changed (milestones, issues with title, labels and milestone, writebacks) and the waves per milestone (`Wave 1: <task>, <task>` / `Wave 2: <task>`), and ask **Proceed?**. A free-text "ok" does not count; wait for the structured answer. For a roadmap index, batch it with **Horizon**.
 
 ## Milestone shape

@@ -110,7 +110,7 @@ flowchart LR
 | `/wf:adr [title]` | `docs/adr/NNNN-<slug>.md` — an architecture decision record |
 | `/wf:roadmap` | `docs/roadmap/NNN_<phase>.md` — a phased roadmap, one file per phase. Asks whether to file GitHub milestones and issues and, once the roadmap is on the trunk branch, hands off to `/wf:issues` |
 | `/wf:spec <feature>` | `docs/specs/NNN_<feature>.md` — a spec with verification criteria, sliced when it is more than one concern (the check triggers at ~1,000 source lines or ~40 files); each slice carries a risk tier |
-| `/wf:issues <roadmap or spec>` | GitHub milestones and issues — one milestone per phase, one issue per task or slice |
+| `/wf:issues <roadmap or spec>` | GitHub milestones and issues — one milestone per phase, one issue per task or slice, with the execution waves planned (what can run in parallel) and shared-file sequencing flagged |
 
 ### Design
 

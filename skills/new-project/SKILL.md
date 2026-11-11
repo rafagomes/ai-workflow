@@ -1,6 +1,6 @@
 ---
 name: new-project
-description: "Scaffold a new project directory for a chosen stack: git init, a CLAUDE.md with the real build and test commands, a Makefile with test and lint targets, a lint-on-edit hook, a .gitignore, secret scanning and the docs/ skeleton the other /wf skills write into. Use for 'start a new project', 'bootstrap a repo', 'scaffold X', 'init a new service'. Creates a new directory only; it does not touch an existing repo."
+description: "Scaffold a new project directory for a chosen stack: git init, a CLAUDE.md with the real build and test commands, a Makefile with test and lint targets, a lint-on-edit hook, a .gitignore, secret scanning, a free GitHub Actions CI workflow and the docs/ skeleton the other /wf skills write into. Use for 'start a new project', 'bootstrap a repo', 'scaffold X', 'init a new service'. Creates a new directory only; it does not touch an existing repo."
 argument-hint: "<project-name> [language/framework]"
 disable-model-invocation: true
 ---
@@ -32,6 +32,7 @@ Read `references/stacks.md` for the chosen stack, then create:
 - **`Makefile`** with `test`, `lint`, `lint-changed` (lint only changed files; exit 0 when nothing changed or the repo has no commits), plus `typecheck` and `build` only where the stack has them.
 - **`.gitignore`** for the stack, always including `.claude/settings.local.json` (personal overrides; `.claude/settings.json` is committed), `.env` and `.env.*` with `!.env.example`.
 - **`.pre-commit-config.yaml`** with the stack's formatter/linter and gitleaks. Look up gitleaks' current release tag (`git ls-remote --tags https://github.com/gitleaks/gitleaks`) for `rev`; never write a guessed one. Keep tests out of pre-commit.
+- **`.github/workflows/ci.yml`**, a free CI that runs the Makefile's `lint`, `typecheck` (only if the Makefile has it) and `test`, so the checks that gate local work also gate the PR. It runs on `pull_request` and on `push` to the trunk branch, with top-level `permissions: contents: read` and no secrets. Pin every action to a full commit SHA, looked up with `git ls-remote https://github.com/<owner>/<repo> refs/tags/<tag>` (for an annotated tag, the `^{}` line is the commit); never write a guessed SHA, and leave a `# <tag>` comment beside it. Use `actions/checkout` with `persist-credentials: false`, then the stack's setup step from `references/stacks.md` (also SHA-pinned) only when the runner lacks the toolchain, then the dependency install if the stack has one, then `make lint`, `make typecheck`, `make test`. No LLM calls, paid services or cloud accounts.
 - **`.claude/settings.json`**, so lint failures reach Claude. A `PostToolUse` hook only does that when it exits 2 and writes to stderr:
 
 ```json
@@ -62,7 +63,7 @@ Run `make lint` and `make test` once. Each should exit 0 on the empty scaffold; 
 
 ### 6. Commit and summarize
 
-Make the initial commit on the trunk branch with the subject `chore: scaffold project`. Tell the user what was created and what was skipped, then suggest next steps:
+Make the initial commit on the trunk branch with the subject `chore: scaffold project`. Tell the user what was created (CI workflow included) and what was skipped, then suggest next steps:
 1. `pre-commit install` (after `pipx install pre-commit` if needed)
 2. `/wf:prd <project-name>`, then `/wf:architecture` (until it exists, `/wf:feature` and `/wf:fix` infer the testing strategy from the code)
 3. `/wf:threat-model` if applicable

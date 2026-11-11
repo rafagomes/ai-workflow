@@ -290,16 +290,16 @@ allowed "$many"
 
 # --- crafted inputs finish well inside the hook timeout (a timeout does not block)
 if command -v jq >/dev/null 2>&1 && [[ "$(date +%s%N)" =~ ^[0-9]+$ ]]; then
-    timed_blocked() { # timed_blocked <label> <command> [limit ms]
+    timed_blocked() { # timed_blocked <label> <command> [limit ms] [inner: no deadline wrapper]
         local t0 t1 ms limit="${3:-2000}"
         t0=$(date +%s%N)
-        ERR="$(printf '%s' "$2" | jq -Rs '{tool_name:"Bash",cwd:"/tmp",tool_input:{command:.}}' | "$BASH_BIN" "$GUARD" 2>&1 >/dev/null)"; RC=$?
+        ERR="$(printf '%s' "$2" | jq -Rs '{tool_name:"Bash",cwd:"/tmp",tool_input:{command:.}}' | env ${4:+WF_GUARD_INNER=1} "$BASH_BIN" "$GUARD" 2>&1 >/dev/null)"; RC=$?
         t1=$(date +%s%N); ms=$(( (t1 - t0) / 1000000 ))
         if [ "$RC" -ne 2 ]; then fail "$1 should be blocked (rc=$RC)"
         elif [ "$ms" -ge "$limit" ]; then fail "$1 took ${ms} ms (limit $limit)"
         else ok; fi
     }
-    rep() { yes "$1" | head -n "$2" | tr -d '\n'; }
+    rep() { yes -- "$1" | head -n "$2" | tr -d '\n'; }
     timed_blocked "22 KB of git commit words" "$(rep 'git commit ' 2000); git commit --no-verify"
     timed_blocked "1 MB of git push words" "$(rep 'git push ' 100000)"
     timed_blocked "gh pr review words" "$(rep 'gh pr review ' 80000); gh pr review --approve"
@@ -315,6 +315,11 @@ if command -v jq >/dev/null 2>&1 && [[ "$(date +%s%N)" =~ ^[0-9]+$ ]]; then
     timed_blocked "900 KB of --xx words" "$(rep 'git commit --xx ' 55000); git commit --no-verify" 3000
     timed_blocked "one 900 KB --aaa word" "git commit --$(head -c 900000 /dev/zero | tr '\0' a) --no-verify" 3000
     timed_blocked "750 KB of cd a" "$(rep 'cd a ' 150000); git commit --no-verify" 3000
+    # hosts without timeout/gtimeout have no deadline: the caps alone must bound the work
+    blocked too-large "git push origin $(rep 'x ' 300)"
+    timed_blocked "7000 refs in one push, no deadline" "git push -f origin $(rep 'x ' 7000)main" 3000 inner
+    timed_blocked "256 refs ending in main, no deadline" "git push -f origin $(rep 'x ' 255)main" 3000 inner
+    timed_blocked "git -C a chain at 128 KB, no deadline" "git $(rep '-C a ' 25000) commit --no-verify" 3000 inner
     timed_blocked "cd with a long path" "cd $(head -c 100000 /dev/zero | tr '\0' a); git commit --no-verify" 7000
 fi
 
@@ -371,6 +376,18 @@ fi
 mkbin "$TMP/nojqpy" jq python3
 RC=0; ERR="$(printf '%s' "$BAD" | PATH="$TMP/nojqpy" "$BASH_BIN" "$GUARD" 2>&1 >/dev/null)" || RC=$?
 if [ "$RC" -eq 0 ] && [[ "$ERR" == *"neither jq nor python3"* ]]; then ok; else fail "without jq and python3 the guard should fail open with a warning (rc=$RC, $ERR)"; fi
+
+# --- no timeout or gtimeout: a perl alarm is the deadline (skipped without perl)
+if command -v perl >/dev/null 2>&1; then
+    mkbin "$TMP/noTmo"
+    ln -sf "$BASH_BIN" "$TMP/noTmo/bash"; ln -sf "$(command -v perl)" "$TMP/noTmo/perl"
+    RC=0; ERR="$(payload 'ls' "$REPO_T" | WF_GUARD_TIMEOUT=0.001 PATH="$TMP/noTmo" "$BASH_BIN" "$GUARD" 2>&1 >/dev/null)" || RC=$?
+    if [ "$RC" -eq 2 ] && [[ "$ERR" == *"[too-slow]"* ]]; then ok; else fail "the perl deadline should block a slow analysis (rc=$RC, $ERR)"; fi
+    RC=0; payload 'git push --force origin main' "$REPO_T" | PATH="$TMP/noTmo" "$BASH_BIN" "$GUARD" >/dev/null 2>&1 || RC=$?
+    if [ "$RC" -eq 2 ]; then ok; else fail "under the perl deadline a forbidden command is still blocked (rc=$RC)"; fi
+    RC=0; payload 'git status' "$REPO_T" | PATH="$TMP/noTmo" "$BASH_BIN" "$GUARD" >/dev/null 2>&1 || RC=$?
+    if [ "$RC" -eq 0 ]; then ok; else fail "under the perl deadline an ordinary command is allowed (rc=$RC)"; fi
+fi
 
 # --- the hook manifest points at the guard
 if command -v jq >/dev/null 2>&1; then

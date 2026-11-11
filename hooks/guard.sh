@@ -7,8 +7,9 @@
 #   trunk-force-push    force-pushes the trunk (main, master or the origin default branch)
 #   trunk-delete        deletes the trunk on the remote
 #   pr-approve          runs `gh pr review --approve` (approving is the human's call)
-#   too-large           the command is over 128 KB, has over 500 git/gh segments, or
-#                       more than 100000 words follow its git/gh words (too much to inspect)
+#   too-large           the command is over 128 KB, has over 500 git/gh segments, more
+#                       than 100000 words after its git/gh words, over 256 refs in a
+#                       push, or a cd or git -C path over 4 KB (too much to inspect)
 #   too-slow            the analysis did not finish in 5 s (a hook timeout does not block,
 #                       so the guard enforces its own deadline and fails closed)
 #
@@ -31,8 +32,9 @@
 # session. Not covered: variables, aliases, git aliases, `git -c core.hooksPath`,
 # scripts, `gh api`, and a command split by quotes inside a word (`g"i"t`).
 #
-# The analysis runs in a child under `timeout` (`gtimeout` on macOS); without either
-# binary only the size caps bound the work. WF_GUARD_TIMEOUT overrides the 5 s.
+# The analysis runs in a child under `timeout` (`gtimeout` on macOS, else a perl
+# alarm); with none of them only the size caps bound the work (a push may name at
+# most 256 refs, and git lookups are cached per push). WF_GUARD_TIMEOUT overrides the 5 s.
 #
 # Fails open: with neither jq nor python3, or JSON it cannot parse, the command is
 # allowed and a one-line warning goes to stderr, so a missing tool never bricks a
@@ -52,17 +54,24 @@ input=$(cat)   # always drain stdin, even when the guard is off
 [ "${WF_GUARD:-}" = "off" ] && exit 0
 [ ${#input} -le 1048576 ] || deny too-large "the hook input is over 1 MB, too big to inspect; split the command up"
 
-# Deadline: run the analysis in a child under timeout (gtimeout on macOS), and
-# block when it does not finish, because a hook that times out is not blocking.
-# Without either binary only the size caps bound the work. Exits 0 or 2 only.
+# Deadline: run the analysis in a child under timeout (gtimeout on macOS, else a
+# perl alarm), and block when it does not finish, because a hook that times out
+# is not blocking. Without any of them only the size caps bound the work. Exits
+# 0 or 2 only.
 if [ -z "${WF_GUARD_INNER:-}" ]; then
     tmo=$(command -v timeout || command -v gtimeout) || tmo=""
+    runner=()
     if [ -n "$tmo" ]; then
-        printf '%s' "$input" | WF_GUARD_INNER=1 "$tmo" -k 1 "${WF_GUARD_TIMEOUT:-5}" bash "${BASH_SOURCE[0]}"
+        runner=("$tmo" -k 1 "${WF_GUARD_TIMEOUT:-5}")
+    elif command -v perl >/dev/null 2>&1; then
+        runner=(perl -MTime::HiRes=alarm -e 'alarm shift; exec @ARGV' "${WF_GUARD_TIMEOUT:-5}")
+    fi
+    if [ ${#runner[@]} -gt 0 ]; then
+        printf '%s' "$input" | WF_GUARD_INNER=1 "${runner[@]}" bash "${BASH_SOURCE[0]}"
         rc=$?
         case $rc in
             0|2) exit $rc ;;
-            124|137|143) deny too-slow "the command took too long to inspect; split it up or write it to a script file" ;;
+            124|137|142|143) deny too-slow "the command took too long to inspect; split it up or write it to a script file" ;;
             *) warn_open "the guard failed (exit $rc)" ;;
         esac
     fi
@@ -93,17 +102,28 @@ WD=$(json_field .cwd cwd) || WD=""
 
 git_dir() { git -C "$WD" "$@" 2>/dev/null; }
 
-current_branch() { git_dir symbolic-ref --short HEAD; }
+# Per check_push call caches, so a push costs a fixed number of git processes
+# however many refs it names: the current branch, and the remotes' default branches.
+CUR_INIT=0; CUR_VAL=""; TRUNK_INIT=0; TRUNK_EXTRA=""
+cur_branch() {
+    [ $CUR_INIT = 1 ] && return 0
+    CUR_INIT=1
+    CUR_VAL=$(git_dir symbolic-ref --short HEAD)
+}
 
 # is_trunk <branch> <remote>: main, master, or the remote's default branch.
 is_trunk() {
-    local b="$1" r="${2:-origin}" d rr
+    local b="$1" r="${2:-origin}" d rr x
     case "$b" in main|master) return 0 ;; esac
     [ -n "$b" ] || return 1
-    for rr in "$r" origin; do
-        d=$(git_dir symbolic-ref --short "refs/remotes/$rr/HEAD") || continue
-        [ "${d#"$rr"/}" = "$b" ] && return 0
-    done
+    if [ $TRUNK_INIT = 0 ]; then
+        TRUNK_INIT=1
+        for rr in "$r" origin; do
+            d=$(git_dir symbolic-ref --short "refs/remotes/$rr/HEAD") || continue
+            TRUNK_EXTRA="$TRUNK_EXTRA ${d#"$rr"/}"
+        done
+    fi
+    for x in $TRUNK_EXTRA; do [ "$x" = "$b" ] && return 0; done
     return 1
 }
 
@@ -145,6 +165,7 @@ check_commit_push() { # check_commit_push <sub> <args...>
 check_push() { # check_push <args...>
     local a cluster ch i skip=0 force=0 del=0 all=0 remote="" have_remote=0 ref dst forced cur
     local refs=()
+    CUR_INIT=0; TRUNK_INIT=0; TRUNK_EXTRA=""
     for a in "$@"; do
         if [ $skip = 1 ]; then skip=0; continue; fi
         if [[ "$a" == -* ]] && [ "$a" != "-" ]; then
@@ -175,6 +196,7 @@ check_push() { # check_push <args...>
         fi
     done
 
+    [ ${#refs[@]} -le 256 ] || deny too-large "more than 256 refs in one push, too many to inspect; push fewer refs"
     for ref in ${refs[@]+"${refs[@]}"}; do
         [ ${#ref} -le 1024 ] || continue   # no ref name is that long; the expansions below are quadratic on long words
         forced=$force
@@ -186,7 +208,7 @@ check_push() { # check_push <args...>
             dst="$ref"
         fi
         dst="${dst#refs/}"; dst="${dst#heads/}"
-        if [ "$dst" = HEAD ] || [ "$dst" = "@" ]; then dst=$(current_branch); fi
+        if [ "$dst" = HEAD ] || [ "$dst" = "@" ]; then cur_branch; dst="$CUR_VAL"; fi
         if [ $del = 1 ] && is_trunk "$dst" "$remote"; then
             deny trunk-delete "deleting the trunk branch '$dst' on the remote is not allowed; leave the trunk alone"
         fi
@@ -198,7 +220,7 @@ check_push() { # check_push <args...>
         deny trunk-force-push "force-pushing with --all or --mirror would overwrite the trunk; push the one feature branch by name"
     fi
     if [ $force = 1 ] && [ ${#refs[@]} -eq 0 ]; then
-        cur=$(current_branch)
+        cur_branch; cur="$CUR_VAL"
         if is_trunk "$cur" "$remote"; then
             deny trunk-force-push "force-pushing while on the trunk branch '$cur' is not allowed; switch to a feature branch or add a new commit"
         fi
@@ -301,6 +323,7 @@ check_segment() { # check_segment <words joined by $US>
                         -C)
                             if [ $j -lt ${#T[@]} ]; then
                                 case "${T[$j]}" in /*) gwd="${T[$j]}" ;; *) gwd="$gwd/${T[$j]}" ;; esac
+                                [ ${#gwd} -le 4096 ] || deny too-large "the git -C path is too long to track; use shorter paths"
                                 j=$((j + 1))
                             fi ;;
                         -c|--git-dir|--work-tree|--namespace|--exec-path|--config-env) j=$((j + 1)) ;;

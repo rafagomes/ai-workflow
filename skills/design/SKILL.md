@@ -1,6 +1,6 @@
 ---
 name: design
-description: "Design a product's UI in Paper: a design system and brand guide (docs/design/DESIGN_SYSTEM.md plus Paper artboards), then light and dark screens for each flow, grounded in the PRD and specs. Use when the user asks to mock up or design screens, make a design system or brand guide, or mentions Paper / Paper.design. Needs the Paper MCP and a PRD or spec to work from. Commits to a distinctive aesthetic direction instead of a generic SaaS look, and creates the design source that UI work later builds from. Use /wf:verify-design afterwards to check built UI against the result."
+description: "Design a product's UI in Paper: a design system and brand guide (docs/design/DESIGN_SYSTEM.md plus Paper artboards), then light and dark screens for each flow, grounded in the PRD and specs. Use when the user asks to mock up or design screens, make a design system or brand guide, or mentions Paper / Paper.design. Needs the Paper MCP and a PRD or spec to work from. Commits to a distinctive aesthetic direction instead of a generic SaaS look, and creates the design source that UI work later builds from. Not for implementing UI in code (use /wf:feature, which builds from the design source this skill creates); use /wf:verify-design afterwards to check built UI against it."
 argument-hint: "[flow | flow/screen] [--system-only | --layouts-only]"
 ---
 Create UI designs in Paper for: $ARGUMENTS

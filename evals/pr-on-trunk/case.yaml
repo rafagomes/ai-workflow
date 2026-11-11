@@ -5,11 +5,14 @@ tags: [pr]
 execution:
   prompt: |
     Open a PR for what I have committed.
+    The GitHub CLI is not authenticated here and there is no network, so a
+    PR cannot really be opened; run the skill's precondition checks anyway and
+    report what stops you.
     This is a non-interactive run: where you would ask me something, take
     the recommended option and say so in your report.
   max_turns: 15
   timeout_seconds: 240
-  allowed_tools: [Read, Glob, Grep, Skill]
+  allowed_tools: [Read, Glob, Grep, Skill, Bash]
 context:
   scaffold_script: scaffold.sh
 graders:

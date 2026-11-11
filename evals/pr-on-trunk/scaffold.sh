@@ -10,3 +10,8 @@ git add -A
 git commit -q -m "chore: initial commit"
 printf '# demo\n\nA second commit, straight on main.\n' > README.md
 git commit -q -am "docs: describe the demo"
+# Local bare "origin" inside .git, so the skills can resolve the trunk without a network.
+git init -q --bare "$PWD/.git/origin.git"
+git remote add origin "$PWD/.git/origin.git"
+git push -q origin main
+git remote set-head origin main

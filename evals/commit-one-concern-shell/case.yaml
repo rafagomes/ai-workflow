@@ -11,7 +11,7 @@ execution:
     so the result can be checked.
   max_turns: 20
   timeout_seconds: 240
-  allowed_tools: [Read, Glob, Grep, Skill]
+  allowed_tools: [Read, Glob, Grep, Skill, Bash]
 context:
   scaffold_script: scaffold.sh
 graders:

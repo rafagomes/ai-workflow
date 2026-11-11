@@ -20,6 +20,11 @@ printf 'lint:\n\tsh -n bin/backup.sh && sh -n bin/restore.sh\n' > Makefile
 printf '# snapshot\n\nTiny backup helpers.\n' > README.md
 git add -A
 git commit -q -m "chore: initial commit"
+# Local bare "origin" inside .git, so the skills can resolve the trunk without a network.
+git init -q --bare "$PWD/.git/origin.git"
+git remote add origin "$PWD/.git/origin.git"
+git push -q origin main
+git remote set-head origin main
 git switch -q -c fix/paths-with-spaces
 
 # One concern: quote the paths in both scripts.

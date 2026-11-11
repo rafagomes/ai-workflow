@@ -57,7 +57,7 @@ claude plugin eval . --scaffold --no-publish --allow-tools Bash Write Edit --max
 Flags that matter:
 
 - `--scaffold` runs each case's `scaffold.sh` as you, outside the agent's sandbox. Pass it only for cases you or this repo's maintainers wrote.
-- `--allow-tools Bash Write Edit` grants the tools the skills need. The agent's shell runs in Claude Code's OS sandbox, confined to the run's workspace.
+- A tool needs two things: it must be in the case's `allowed_tools` and be granted with `--allow-tools`. The cases list `Bash` (and `Write`, `Edit` for `feature` and `fix`); `--allow-tools Bash Write Edit` is the other half. Without either half the tool is silently removed and the run only fails its graders (the CLI says `not granted` in its progress output). The agent's shell runs in Claude Code's OS sandbox, confined to the run's workspace.
 - `--runs N` overrides the per-case run count (default 3). One run is a smoke test; use 3 or more before calling a result real.
 - `--max-cost-usd` is a hard ceiling. Set it every time.
 - `--no-publish` keeps the HTML report local.
@@ -87,7 +87,7 @@ Each case prints a score (the weighted fraction of graders that passed, averaged
 - **A grader that fails in both arms is probably a bad grader.** Read the trace before blaming the skill.
 - **Read the transcript, not only the number.** The HTML report links each run's trace. Numbers miss style: whether the commit plan was sensible, whether the root-cause sentence was true.
 - **One run is noise.** Before shipping a change on the strength of a delta, rerun with `--runs 3` or more.
-- If the trace shows `permission denied: git`, the run's sandbox has no usable `git`, and every case that needs it (all of `commit`, `pr`, and the branch and no-commit graders of `feature` and `fix`) scores wrongly. This was seen when the eval was started from inside another agent session. Run it from a plain terminal, and check `git --version` there first (2.31 or later is required).
+- If the progress output says a tool was `not granted`, or a `tool_used` grader with `max: 0` passes with `Bash called 0x`, the tool never ran: check both halves of the grant (above). The graders that guard against a forbidden command only mean something when `Bash` really ran.
 - A `grader threw ... does not exist` line means the run never produced the file the grader reads: usually a tool was not granted, or the agent stopped early. Look at the trace.
 
 ## How to add a case
@@ -96,7 +96,7 @@ Each case prints a score (the weighted fraction of graders that passed, averaged
 2. Make `evals/<skill>-<what-it-checks>/` with a `case.yaml` and a `scaffold.sh`. Start from `claude plugin eval init --bare <name>` if you want the blank template; the files here use the single-file `case.yaml` form (`schema_version: "1.1"`).
 3. The scaffold builds a tiny repository: varied fixtures (different languages, a Makefile `test` or `lint` target), no network, no remote. It runs in the empty workspace with a minimal environment, and a non-zero exit fails the run.
 4. Write the prompt the way a user would, and say that the run is non-interactive so the agent takes recommended defaults instead of waiting. Do not name the skill; the `skill-fired` grader tells you whether it loaded.
-5. Prefer deterministic graders. There is no command grader, so for state that only a command can show (commits, the result of running code), end the prompt with a line asking the agent to write it to a file (`git log ... > eval-commits.txt`) and grade the file with a `regex` grader using `target: { source: file, path: ... }`.
+5. Prefer deterministic graders, and list every tool the skill needs in the case's `allowed_tools` (it must also be granted with `--allow-tools`). There is no command grader, so for state that only a command can show (commits, the result of running code), end the prompt with a line asking the agent to write it to a file (`git log ... > eval-commits.txt`) and grade the file with a `regex` grader using `target: { source: file, path: ... }`.
 6. Tag the case with the skill, keep `max_turns` and `timeout_seconds` tight, and check the case can fail: break the behaviour (or run the baseline arm) and see the grader go red.
 
 ## Principles we settled on

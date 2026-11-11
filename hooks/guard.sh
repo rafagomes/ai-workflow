@@ -14,6 +14,10 @@
 # `git -c core.hooksPath=...`, `sudo -u user git ...`, scripts, heredoc bodies
 # (their lines are read as commands, a rare false positive), or `gh api`. A
 # determined agent can get around it; an honest mistake is caught.
+# A `$(...)` inside double quotes (a heredoc commit message) is kept as one token,
+# found by matching parens while skipping quotes, escapes and heredoc bodies. If
+# that scan finds no closing paren, the command is checked again with plain quote
+# tracking too, which can false-block a message holding an odd number of quotes.
 #
 # Fails open: with neither jq nor python3, or JSON it cannot parse, the command is
 # allowed and a one-line warning goes to stderr, so a missing tool never bricks a
@@ -55,11 +59,54 @@ deny() { # deny <rule> <message>
 }
 
 # Split a command string into segments, one per line, tokens joined by $US.
+# tokenize <command> <aware>: with aware=1 a $(...) inside double quotes stays in
+# its token (skipping '...' and "..." spans, backslash escapes and heredoc bodies
+# when looking for the closing paren); with aware=0 it is plain quote tracking.
+# Exits 3 when an aware scan finds no closing paren, so the caller can also run
+# the plain tokenization (fail closed).
 tokenize() {
-    printf '%s' "$1" | awk '
+    printf '%s' "$1" | awk -v aware="$2" '
     function add(c) { tok = tok (c == "\n" ? "\036" : c); has = 1 }
     function endtok() { if (has) { seg = seg (segn++ ? "\037" : "") tok } tok = ""; has = 0 }
     function endseg() { endtok(); if (segn > 0) print seg; seg = ""; segn = 0 }
+    function scan_subst(i,   j, depth, ch, hd, k, e, line, p, w, qc) {
+        depth = 0; hd = ""
+        for (j = i + 1; j <= len; j++) {
+            ch = substr(s, j, 1)
+            if (ch == "\\") j++
+            else if (ch == "\047") { j++; while (j <= len && substr(s, j, 1) != "\047") j++ }
+            else if (ch == "\"") {
+                j++
+                while (j <= len && substr(s, j, 1) != "\"") { if (substr(s, j, 1) == "\\") j++; j++ }
+            }
+            else if (ch == "<" && substr(s, j + 1, 1) == "<" && substr(s, j + 2, 1) != "<") {
+                p = j + 2
+                if (substr(s, p, 1) == "-") p++
+                while (substr(s, p, 1) == " " || substr(s, p, 1) == "\t") p++
+                qc = substr(s, p, 1)
+                if (qc == "\047" || qc == "\"") p++
+                w = ""
+                while (substr(s, p, 1) ~ /[A-Za-z0-9_]/) { w = w substr(s, p, 1); p++ }
+                if (w != "" && (qc == "\047" || qc == "\"") && substr(s, p, 1) == qc) p++
+                if (w != "") hd = w
+                j = p - 1
+            }
+            else if (ch == "\n" && hd != "") {
+                k = j + 1
+                while (1) {
+                    if (k > len) { j = len; break }
+                    e = index(substr(s, k), "\n"); e = e ? k + e - 1 : len + 1
+                    line = substr(s, k, e - k); sub(/^\t+/, "", line)
+                    if (line == hd) { j = e - 1; hd = ""; break }
+                    k = e + 1
+                }
+            }
+            else if (ch == "(") depth++
+            else if (ch == ")") { if (--depth == 0) return j }
+        }
+        unterm = 1
+        return len
+    }
     { s = s (NR > 1 ? "\n" : "") $0 }
     END {
         len = length(s); q = ""
@@ -70,15 +117,9 @@ tokenize() {
                 if (c == "\\") {
                     d = substr(s, i + 1, 1)
                     if (d == "\"" || d == "\\" || d == "$" || d == "`") { add(d); i++ } else add(c)
-                } else if (c == "$" && substr(s, i + 1, 1) == "(") {
+                } else if (aware == 1 && c == "$" && substr(s, i + 1, 1) == "(") {
                     # $(...) inside double quotes: keep it, quotes and all, in this token
-                    depth = 0
-                    for (j = i + 1; j <= len; j++) {
-                        ch = substr(s, j, 1)
-                        if (ch == "(") depth++
-                        else if (ch == ")" && --depth == 0) break
-                    }
-                    if (j > len) j = len
+                    j = scan_subst(i)
                     sub_s = substr(s, i, j - i + 1)
                     gsub(/\n/, "\036", sub_s)
                     tok = tok sub_s; has = 1
@@ -97,6 +138,7 @@ tokenize() {
             else add(c)
         }
         endseg()
+        exit unterm ? 3 : 0
     }'
 }
 
@@ -225,12 +267,26 @@ check_gh() { # check_gh <args...>
 
 DEPTH=0
 check_string() { # check_string <command string>
-    local segs line t i gwd sub saved rest w
-    local T=()
+    local segs rc origwd
     DEPTH=$((DEPTH + 1))
     if [ $DEPTH -gt 4 ]; then DEPTH=$((DEPTH - 1)); return 0; fi
-    segs=$(tokenize "$1")
-    [ -n "$segs" ] || { DEPTH=$((DEPTH - 1)); return 0; }
+    origwd="$WD"
+    segs=$(tokenize "$1" 1); rc=$?
+    check_segs "$segs"
+    if [ $rc -eq 3 ]; then
+        # an unterminated $(...) may have swallowed the rest of the command: also
+        # check the plain tokenization, which cannot hide anything behind it
+        WD="$origwd"
+        check_segs "$(tokenize "$1" 0)"
+    fi
+    WD="$origwd"
+    DEPTH=$((DEPTH - 1))
+}
+
+check_segs() { # check_segs <segments from tokenize>
+    local segs="$1" line t i gwd sub saved rest w
+    local T=()
+    [ -n "$segs" ] || return 0
     while IFS= read -r line; do
         IFS="$US" read -r -a T <<<"$line"
         i=0
@@ -291,7 +347,6 @@ check_string() { # check_string <command string>
                 check_string "${rest//$RS/$'\n'}" ;;
         esac
     done <<<"$segs"
-    DEPTH=$((DEPTH - 1))
 }
 
 check_string "$command_str"

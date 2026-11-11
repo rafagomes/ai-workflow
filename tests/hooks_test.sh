@@ -131,6 +131,21 @@ blocked no-verify $'git commit --no-verify -m "$(cat <<\'EOF\'\nx "quoted"\nEOF\
 blocked no-verify $'git commit -m "$(cat <<\'EOF\'\nx "quoted"\nEOF\n)" --no-verify'
 blocked trunk-force-push $'git commit -m "$(cat <<\'EOF\'\nx "quoted"\nEOF\n)" && git push -f origin main'
 
+# unmatched parens in the substitution must not swallow what follows
+allowed $'git commit -m "$(cat <<\'EOF\'\nfeat: add x (see #3 \nsay "hi" :(\na) item\nEOF\n)"'
+allowed $'git commit -m "$(cat <<-\'EOF\'\n\tb) "quoted -n"\n\tEOF\n)"'
+allowed $'git commit -m "$(echo \'(\') say \\"-n\\""'
+blocked no-verify $'git commit -m "$(cat <<\'EOF\'\nfeat: add x (see #3\nEOF\n)" --no-verify'
+blocked no-verify $'git commit -m "$(cat <<\'EOF\'\nsmile :(\nEOF\n)" --no-verify'
+blocked no-verify $'git commit -m "$(echo \'(\')" --no-verify'
+blocked no-verify $'git commit -m "$(echo \\()" --no-verify'
+blocked no-verify $'git commit -m "$(echo ("  --no-verify'
+blocked no-verify $'git commit -m "$(cat <<\'EOF\'\na) item\n"quoted"\nEOF\n)" -n'
+blocked trunk-force-push $'git commit -m "$(cat <<\'EOF\'\nfeat: add x (see #3\nEOF\n)" && git push -f origin main'
+blocked trunk-force-push $'git commit -m "$(echo \'(\')" && git push -f origin main'
+blocked trunk-force-push $'git commit -m "$(echo \\()" && git push -f origin main'
+blocked trunk-force-push $'git commit -m "$(cat <<\'EOF\'\nsmile :(\nEOF\n)" && git push -f origin main'
+
 # --- trunk delete
 blocked trunk-delete 'git push origin --delete main'
 blocked trunk-delete 'git push --delete origin master'

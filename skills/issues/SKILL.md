@@ -36,8 +36,8 @@ Every read and write goes through `gh`. Run `gh auth status` once at the start; 
 Use `AskUserQuestion` at each decision point: structured options are unambiguous where "ok"/"go" is not. First option is the recommendation; "Other" means the user is correcting you, so re-plan. Batch decisions needed back-to-back into one call.
 
 - **Reconcile** (drifted or closed issues found): Update in place (recommended) / Close + refile / Skip.
-- **Horizon** (roadmap index only): Current + next phase (recommended) / Full roadmap.
-- **Hidden sequencing** (shared files with no declared dependency, see Preflight step 5): one question per pair, or one for all of them: Add the dependency (recommended) / Keep as-is.
+- **Horizon** (roadmap index only): Current + next phase (recommended) / Full roadmap. Asked first, because everything after it is planned only for the phases in the horizon.
+- **Hidden sequencing** (shared files with no declared dependency, see Preflight step 5): one question per pair, or one for all of them: Add the dependency (recommended) / Keep as-is. A "Keep as-is" is not recorded, so a re-run asks again, by design: the source still has the gap.
 - **Proceed?** (dry-run confirmation): Yes / Cancel.
 - **Next phase** (after each milestone batch, only when the user chose Full roadmap): Yes, continue / Stop here.
 
@@ -49,16 +49,16 @@ If `AskUserQuestion` is unavailable (a headless run), do not file anything: prin
 2. **Confirm a GitHub remote:** `gh repo view --json nameWithOwner` must succeed (this also covers GitHub Enterprise). If not, stop.
 3. **Read the source file(s) top to bottom.** Collect `Type`, `Complexity`, `Risk`, `Flag`, `Depends on`, `Spec` and the existing `Issue` / `Issues` values from the Tasks and Slices tables and Trunk Metadata. Read a Slices table by its column headers, not by position (the `Risk` column was added between `Complexity` and `Issue`). A source with no `Risk` (an older spec) gets no `risk:*` label. A slice's files (and a single-file spec's) are in its spec's `### Affected Files`; for a task with a single-file spec or no spec, fall back to the roadmap task's `Files`. A roadmap task that points at a sliced spec has a task-level `Files` that spans slices, so do not use it per slice.
 4. **Fetch existing milestones** and match them against the phase titles so reruns are idempotent.
-5. **Plan waves, per milestone,** from each task's or slice's `Depends on` and files (as collected in step 3), by the rule in `/wf:autopilot` step 4 (Plan waves): no dependency between tasks, no file in common, at most 5 per wave, and a task with no file list runs alone. Do not restate or adapt that rule here. Then check for **hidden sequencing**:
+5. **Plan waves, per milestone,** from each task's or slice's `Depends on` and files (as collected in step 3), by the rule in `/wf:autopilot` step 4 (Plan waves); this skill does not adapt it. For a roadmap index, ask **Horizon** first and plan only the phases in it. A standalone spec has no milestone: compute the waves over its slices, and the body says `Wave <n> of <spec title>` (`Runs alone.` for a single spec) with no milestone block. Then check for **hidden sequencing**:
    - Two tasks or slices that share a file but declare no dependency cannot run in parallel, so the plan serialises them. List every such pair.
    - If the roadmap's `## Execution Order` marks as parallel tasks that rule says cannot be, list those too.
-   - Ask **Hidden sequencing** (asked here, before Reconcile and Proceed, so the counts and the dry-run see the final plan): add a dependency in the source doc (recommended: the later task in roadmap order depends on the earlier one), or keep as-is and let the wave plan serialise them. Never edit the source's dependencies without the user's answer; an added dependency is written to the source and the waves recomputed. Headless: file nothing, just print the list.
+   - Ask **Hidden sequencing** (before Reconcile and Proceed, so the counts and the dry-run see the final plan): add a dependency in the source doc (recommended: the later task in roadmap order depends on the earlier one), or keep as-is and let the wave plan serialise them. An added dependency is recorded in the plan and the waves are recomputed, but the source is written only after **Proceed?** (see Execution). Headless: file nothing, just print the list.
 6. **Detect already-filed issues.**
    - For each row with a `#<N>`, run `gh issue view`. Classify it `match` (aligned with the source), `drift` (title, labels, milestone or body need an update) or `gone` (closed or deleted). The body's Dependencies section matches when every task or slice in `Depends on` appears as its filed `#N` and every phase as `Needs all of <milestone title>`; an `Also needs:` sentence is never drift, and an update in place keeps it.
    - For rows with no `Issue` value, search open and closed issues by title prefix (`gh issue list --state all --search "[003.2] in:title"`). Adopt a match instead of creating a duplicate: a previous run may have died between creating the issue and the writeback.
    - The body also matches only when its `## Parallelization` section and the milestone's `Execution waves` block equal the final plan from step 5. A change to dependencies or files is drift, and the waves and peers are recomputed.
    - Print `X rows already filed: Y match / Z drift / W gone`, then ask the **Reconcile** question. If the user names specific rows under "Other", re-plan per row.
-7. **Dry-run.** Print everything that will be created or changed (milestones, issues with title, labels and milestone, writebacks) and the waves per milestone (`Wave 1: <task>, <task>` / `Wave 2: <task>`), and ask **Proceed?**. A free-text "ok" does not count; wait for the structured answer. For a roadmap index, batch it with **Horizon**.
+7. **Dry-run.** Print everything that will be created or changed (milestones, issues with title, labels and milestone, writebacks) and the waves per milestone (`Wave 1: <task>, <task>` / `Wave 2: <task>`), and ask **Proceed?**. A free-text "ok" does not count; wait for the structured answer. No source file is edited before it, dependency edits included.
 
 ## Milestone shape
 
@@ -78,7 +78,7 @@ If `AskUserQuestion` is unavailable (a headless run), do not file anything: prin
 
 There are no `wave:*` labels: waves are relative to a milestone and rot as work merges, so they live in the issue body and the milestone description instead.
 
-Create missing labels on first run (`gh label list --limit 200 --json name`, then `gh label create "<name>" --color <hex>`). Colors: `type:feat` `1d76db`, `type:fix` `d73a4a`, `type:refactor` `a2eeef`, `type:chore` `cccccc`, `type:test` `0e8a16`, `type:docs` `0075ca`, `type:perf` `fbca04`, `type:build` `5319e7`, `type:ci` `bfd4f2`, `type:security` `b60205`; `complexity:low` `c2e0c6`, `complexity:med` `fef2c0`, `complexity:high` `f9d0c4`; `mvp` `0e8a16`, `post-mvp` `cfd3d7`, `needs-spec` `e99695`; `risk:t0` `cfd3d7`, `risk:t1` `c5def5`, `risk:t2` `b60205`.
+Create missing labels on first run (`gh label list --limit 200 --json name`, then `gh label create "<name>" --color <hex>`). Colors: `type:feat` `1d76db`, `type:fix` `d73a4a`, `type:refactor` `a2eeef`, `type:chore` `cccccc`, `type:test` `0e8a16`, `type:docs` `0075ca`, `type:perf` `fbca04`, `type:build` `5319e7`, `type:ci` `bfd4f2`, `type:security` `b60205`; `complexity:low` `c2e0c6`, `complexity:med` `fef2c0`, `complexity:high` `f9d0c4`; `mvp` `0e8a16`, `post-mvp` `cfd3d7`, `needs-spec` `e99695`; `risk:t0` `bfdadc`, `risk:t1` `c5def5`, `risk:t2` `d93f0b`.
 
 **Body template:**
 
@@ -91,7 +91,7 @@ Create missing labels on first run (`gh label list --limit 200 --json name`, the
 - Trunk metadata: type=<type>, flag=<flag>, complexity=<complexity>
 
 ## Files
-<bullet list of files from the task's Files field>
+<bullet list of the files collected in Preflight step 3 for this issue>
 
 ## Dependencies
 <`None.` or, one sentence each and in this order, whichever apply: `Blocked by #<N>[, #<N>...].` `Needs all of <milestone title>.` `Also needs: <text>.`>
@@ -134,14 +134,14 @@ For a roadmap index spanning many phases, default to filing only the current pha
 
 1. **Current phase:** the first phase whose Status is not `Completed`, or whose tasks don't all have `Issue` values.
 2. **Next phase:** the phase after it in the index.
-3. The dry-run files only those two and lists the skipped phases ("Phases 004–009 stay in docs/roadmap/ for now; re-run `/wf:issues` when you're ready for the next wave").
-4. Ask **Horizon**. If the user picks Full roadmap, drop the cap and warn about the label-rot cost.
+3. Ask **Horizon** in Preflight step 5, before planning waves. If the user picks Full roadmap, drop the cap and warn about the label-rot cost.
+4. The dry-run files only the phases in the horizon and lists the skipped ones ("Phases 004–009 stay in docs/roadmap/ for now; re-run `/wf:issues` when you're ready for the next wave").
 
 Re-running later is idempotent on filed phases and picks up the next window.
 
 ## Execution: one milestone at a time
 
-For roadmap and phase inputs, file one milestone and its issues at a time, in roadmap order, so a broken run is recoverable and writebacks stay atomic per phase. Write each `#N` back into the source right after its issue is created, so an interrupted run does not leave an issue the source does not know about. After each batch, print the milestone and issue URLs. When the user chose Full roadmap, ask **Next phase** and halt unless they continue; otherwise move on to the next phase in the horizon. Single-spec inputs: file, write back, done.
+After **Proceed?**, first write any accepted dependency edits to the source. For roadmap and phase inputs, file one milestone and its issues at a time, in roadmap order, so a broken run is recoverable and writebacks stay atomic per phase. Write each `#N` back into the source right after its issue is created, so an interrupted run does not leave an issue the source does not know about. After each batch, print the milestone and issue URLs. When the user chose Full roadmap, ask **Next phase** and halt unless they continue; otherwise move on to the next phase in the horizon. Single-spec inputs: file, write back, done.
 
 ## Writeback
 

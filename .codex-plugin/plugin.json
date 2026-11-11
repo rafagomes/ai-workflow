@@ -1,0 +1,17 @@
+{
+  "name": "wf",
+  "description": "Spec-driven, trunk-based delivery workflow for Claude Code and Codex: PRD, architecture and threat model, specs, roadmap and issues, implementation, and a draft-review-ready PR flow with a fresh-context reviewer.",
+  "author": { "name": "Rafa Gomes" },
+  "homepage": "https://github.com/rafagomes/ai-workflow",
+  "repository": "https://github.com/rafagomes/ai-workflow",
+  "license": "MIT",
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.json",
+  "interface": {
+    "displayName": "wf",
+    "shortDescription": "Spec-driven, trunk-based delivery workflow",
+    "developerName": "Rafa Gomes",
+    "category": "Coding",
+    "websiteURL": "https://github.com/rafagomes/ai-workflow"
+  }
+}

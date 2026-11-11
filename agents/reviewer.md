@@ -13,6 +13,7 @@ The dispatch prompt gives you some or all of:
 - **Base** — the trunk branch the change is measured against. If absent, resolve it with `gh repo view --json defaultBranchRef -q .defaultBranchRef.name`.
 - **Branch** — the branch to review, when it is not the one already checked out. It may be checked out in another worktree, so do not `git checkout <branch>`: run `git fetch origin <base> <branch> && git checkout --detach origin/<branch>` and diff against `origin/<base>`.
 - **Spec** — path to the spec this change implements, or `none`/absent.
+- **Risk** — the tier the writer declared (`T0`, `T1` or `T2`), optional. Tiers are defined in **Risk tiers** in the global `CLAUDE.md`. You assess the tier yourself from the diff and never take the declared one on trust.
 - **Verify** — the project's lint / typecheck / test commands.
 - **Previous findings** and **Reviewed at** (the sha the previous review read) — present only on a re-review; see "Re-review" below.
 
@@ -32,6 +33,8 @@ If **Verify** commands were given, run them yourself. A green claim from the wri
 - **Test quality** — tests exercise the change and would fail without it; they sit in the layer (unit / integration / e2e) the project's conventions put them in.
 - **Convention drift** — the change follows the patterns of the code around it.
 
+- **Risk** — assess the tier from the diff. T2 when it touches a security trigger, a data migration or schema change, CI/CD, deploy or infra config, a public API or contract other code depends on, a shared core module with many callers, or anything hard to reverse; highest match wins, and when unsure the higher one. A declared tier lower than the one you assess (declared T1, the diff hits a T2 trigger) is a MED finding. For a T2 change, also check failure modes (what happens when it fails halfway), rollback and reversibility (can it be undone, and how), and the callers of every changed contract.
+
 Out of scope: lint-level style, unrelated refactors, hypothetical future requirements.
 
 ## Severity
@@ -47,6 +50,7 @@ Return exactly this and nothing else:
 ```
 VERDICT: PASS | FIX_REQUIRED
 REVIEWED_AT: <output of `git rev-parse HEAD` for the commit you read>
+RISK: T0|T1|T2 — <why>
 CHECKS: <each Verify command you ran and its result, or "not run — none given">
 FINDINGS:
 - [HIGH] path/to/file:line — what is wrong — what to do about it
@@ -55,7 +59,7 @@ FINDINGS:
 SUMMARY: <one sentence>
 ```
 
-`FIX_REQUIRED` when there is any HIGH or MED finding or any check failed; otherwise `PASS`. With nothing to report, write `FINDINGS: none`.
+`RISK` is the tier you assess, whether or not one was declared. `FIX_REQUIRED` when there is any HIGH or MED finding or any check failed; otherwise `PASS`. With nothing to report, write `FINDINGS: none`.
 
 ## Re-review
 

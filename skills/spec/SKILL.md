@@ -54,7 +54,7 @@ Estimate size in **added source lines only**; tests never count toward the budge
 - **Flag:** exact flag name (default off), or `none` if it ships user-ready. This is the single source for the flag.
 - **Depends on:** other slice numbers or specs that must merge first; `—` if independent.
 - **Complexity:** `low` is under ~300 added source lines, `med` under ~1,000, `high` is more than that or more than one concern. A `high` slice is a smell to re-slice; if you keep it, add a `## Slicing` section saying why one PR is still defensible.
-- **Risk:** `T0`, `T1` or `T2` with a one-line why, e.g. `T2 — changes the session token format`. Pick it from the definition in **Risk tiers** in your global `CLAUDE.md`: T2 when the slice touches a security trigger, a migration or schema, CI/CD or infra, a public contract, a shared core module or anything hard to reverse; otherwise T1; T0 only for what may skip the reviewer. Highest match wins, and when unsure take the higher. Size does not set it. `/wf:feature` re-checks it against the diff.
+- **Risk:** `T0`, `T1` or `T2` with a one-line why, e.g. `T2 — changes the session token format`. Pick it from **Risk tiers** in your global `CLAUDE.md`, the one definition (highest match wins; when unsure take the higher). Size does not set it. `/wf:feature` re-checks it against the diff.
 - **Issue:** `—` until `/wf:issues` fills it with `#<number>`.
 
 **Sliced index** (`docs/specs/NNN_<slug>/README.md`). The Slices table is the source of truth for `/wf:issues`:

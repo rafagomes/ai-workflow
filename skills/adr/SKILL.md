@@ -5,6 +5,8 @@ argument-hint: "[title]"
 ---
 Create an Architecture Decision Record. Argument: $ARGUMENTS
 
+In hosts that do not substitute `$ARGUMENTS` (e.g. Codex), it is the text the user wrote after the skill name.
+
 ## Context Gathering
 
 1. Find the ADR directory (default `docs/adr/`; use the existing one if the repo has `docs/decisions/` or similar) and take the next number, zero-padded to the existing width, starting at `0001`.

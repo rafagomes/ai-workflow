@@ -5,6 +5,8 @@ argument-hint: "<description | issue link | error text>"
 ---
 Fix the bug described in $ARGUMENTS.
 
+In hosts that do not substitute `$ARGUMENTS` (e.g. Codex), it is the text the user wrote after the skill name.
+
 ## Parse arguments
 
 - **Description:** `/wf:fix users can't login when password contains special chars`

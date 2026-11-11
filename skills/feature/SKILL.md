@@ -5,6 +5,8 @@ argument-hint: "<spec name | path | #issue> [--commit | --pr]"
 ---
 Implement the feature described in $ARGUMENTS.
 
+In hosts that do not substitute `$ARGUMENTS` (e.g. Codex), it is the text the user wrote after the skill name.
+
 ## Parse arguments
 
 - `<name>` → resolve to `docs/specs/NNN_<name>.md` by matching the suffix after the `NNN` prefix (numbering rules are in `/wf:spec`). A sliced spec is a directory `docs/specs/NNN_<name>/`: implement one slice at a time, ask which slice, and never use its `README.md`. If several specs match, ask which.

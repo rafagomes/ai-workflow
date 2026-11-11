@@ -5,6 +5,8 @@ argument-hint: "[focus area]"
 ---
 Create or update the threat model. Argument: $ARGUMENTS (an optional focus area; update only that part and leave the rest)
 
+In hosts that do not substitute `$ARGUMENTS` (e.g. Codex), it is the text the user wrote after the skill name.
+
 ## Context Gathering
 
 Before interviewing, understand the system's security surface:

@@ -5,6 +5,8 @@ argument-hint: "<roadmap, phase or spec file>"
 ---
 File GitHub milestones and issues for: $ARGUMENTS
 
+In hosts that do not substitute `$ARGUMENTS` (e.g. Codex), it is the text the user wrote after the skill name.
+
 ## What this skill does
 
 `/wf:issues` is the hand-off between planning artifacts (`docs/roadmap/*.md`, `docs/specs/*.md`) and GitHub. It files:

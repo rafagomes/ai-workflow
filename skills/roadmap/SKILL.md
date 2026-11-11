@@ -5,6 +5,8 @@ argument-hint: "[phase name | spec path]"
 ---
 Create a phased roadmap for: $ARGUMENTS
 
+In hosts that do not substitute `$ARGUMENTS` (e.g. Codex), it is the text the user wrote after the skill name.
+
 ## Parse Arguments
 
 - **Phase name:** `/wf:roadmap auth-system` writes `docs/roadmap/NNN_auth-system.md`.

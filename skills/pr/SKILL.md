@@ -9,7 +9,7 @@ Default flow: open as a draft, have a fresh-context reviewer review the branch, 
 
 ## Parse Arguments
 
-$ARGUMENTS may contain:
+`$ARGUMENTS` (in hosts that do not substitute it, e.g. Codex, the text the user wrote after the skill name) may contain:
 - **`--draft`** — leave the PR a draft even after the review passes. The review still runs; only the final `gh pr ready` is skipped.
 - **`--no-review`** — skip the review loop and open the PR directly (ready, unless `--draft`). Two cases allow it. First, a fresh-context review of these exact commits already ran (say which). Second, the allow-list in your global agent instructions (`~/.claude/CLAUDE.md` or `~/.codex/AGENTS.md`) → **Review**, repeated here so the skill is self-contained (update both together): the whole diff is a typo, spelling or formatting fix in prose, or a changelog entry or project-version bump. Text that instructs an agent — a skill, an agent definition, a `CLAUDE.md`, a prompt — is behaviour and never qualifies; neither does a revert, a file move, or a dependency bump. When unsure, review. Small or urgent is not a reason to skip. State it in the PR body as `Review: skipped — <reason>`.
 - **No flags** — the default flow.

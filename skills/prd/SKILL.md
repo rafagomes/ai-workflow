@@ -5,6 +5,8 @@ argument-hint: "[product or feature name]"
 ---
 Create a Product Requirements Document for: $ARGUMENTS
 
+In hosts that do not substitute `$ARGUMENTS` (e.g. Codex), it is the text the user wrote after the skill name.
+
 ## Context Awareness
 
 Before starting, check what already exists:

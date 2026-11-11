@@ -249,6 +249,7 @@ ai-workflow/
 ├── settings.example.json      # Seed for your untracked settings.json
 ├── install.sh / uninstall.sh  # Symlink the two personal files above
 ├── extras/                    # Opt-in personal skills (./install.sh --extra)
+├── evals/                     # Local-only plugin eval cases (docs/SKILL_QUALITY.md); never run in CI
 ├── CLAUDE.md                  # Rules for working IN this repo (not installed)
 ├── tests/                     # Offline CI checks: install_test.sh, check_links.py
 ├── .github/                   # workflows/ci.yml, issue templates, PR template

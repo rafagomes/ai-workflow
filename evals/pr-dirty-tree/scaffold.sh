@@ -10,6 +10,11 @@ printf '#!/bin/sh\necho hello\n' > bin/hello.sh
 printf '# hello\n' > README.md
 git add -A
 git commit -q -m "chore: initial commit"
+# Local bare "origin" inside .git, so the skills can resolve the trunk without a network.
+git init -q --bare "$PWD/.git/origin.git"
+git remote add origin "$PWD/.git/origin.git"
+git push -q origin main
+git remote set-head origin main
 git switch -q -c feat/hello-name
 printf '#!/bin/sh\necho "hello ${1:-world}"\n' > bin/hello.sh
 git commit -q -am "feat: greet a name"

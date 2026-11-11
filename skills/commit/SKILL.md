@@ -1,6 +1,6 @@
 ---
 name: commit
-description: "Stage and commit the working tree as one or more conventional commits, split by logical concern. Use when the user says 'commit this', 'save my work', 'check in the changes', or is ready to record progress in git before moving on. Local only: never pushes (use /wf:pr for that)."
+description: "Stage and commit the working tree as one or more conventional commits, split by logical concern. Use when the user says 'commit this', 'save my work', 'check in the changes', or is ready to record progress in git before moving on. Local only: never pushes (use /wf:pr for that). Not for fixing a bug or building a feature (use /wf:fix or /wf:feature, which can commit with --commit)."
 ---
 Stage and commit the current working tree.
 
@@ -26,7 +26,7 @@ Stage and commit the current working tree.
    - Order groups so each commit leaves the codebase working.
    - If the tree is one concern, one commit is correct. Don't invent splits.
 
-4. **Draft messages** — `<type>: <subject>`: imperative, under 72 characters, no trailing period, describing the outcome rather than the mechanism (`fix: reject empty passwords`, not `fix: added if statement`). Add a body only when the *why* is non-obvious: a hidden constraint, a past incident, a tradeoff. Match the casing of recent commits.
+4. **Draft messages** — `<type>: <subject>`, or `<type>(<scope>): <subject>` when recent commits use scopes: imperative, under 72 characters, no trailing period, describing the outcome rather than the mechanism (`fix: reject empty passwords`, not `fix: added if statement`). Add a body only when the *why* is non-obvious: a hidden constraint, a past incident, a tradeoff. Match the casing of recent commits.
 
 5. **Present the plan** before touching git, and wait for explicit approval:
 

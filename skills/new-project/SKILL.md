@@ -1,6 +1,6 @@
 ---
 name: new-project
-description: "Scaffold a new project directory for a chosen stack: git init, a CLAUDE.md with the real build and test commands, a Makefile with test and lint targets, a lint-on-edit hook, a .gitignore, secret scanning, a free GitHub Actions CI workflow and the docs/ skeleton the other /wf skills write into. Use for 'start a new project', 'bootstrap a repo', 'scaffold X', 'init a new service'. Creates a new directory only; it does not touch an existing repo."
+description: "Scaffold a new project directory for a chosen stack: git init, an AGENTS.md (plus a one-line CLAUDE.md importing it) with the real build and test commands, a Makefile with test and lint targets, a lint-on-edit hook, a .gitignore, secret scanning, a free GitHub Actions CI workflow and the docs/ skeleton the other /wf skills write into. Use for 'start a new project', 'bootstrap a repo', 'scaffold X', 'init a new service'. Creates a new directory only; it does not touch an existing repo."
 argument-hint: "<project-name> [language/framework]"
 disable-model-invocation: true
 ---
@@ -55,9 +55,9 @@ Read `references/stacks.md` for the chosen stack, then create:
 }
 ```
 
-### 4. CLAUDE.md
+### 4. AGENTS.md and CLAUDE.md
 
-Write a short `CLAUDE.md` with only what is true of this project: the `make` commands that exist in the Makefile you generated, the code-style points Claude tends to get wrong for this stack, and a one-line architecture note. Leave out a section you cannot fill. Do not copy the user's global workflow rules (commit style, review, security review); they apply in every project. End with: "Features start from a spec in `docs/specs/`; see `/wf:spec`."
+Write a short `AGENTS.md` (the instructions file Codex reads) with only what is true of this project: the `make` commands that exist in the Makefile you generated, the code-style points an agent tends to get wrong for this stack, and a one-line architecture note. Leave out a section you cannot fill. Do not copy the user's global workflow rules (commit style, review, security review); they apply in every project. End with: "Features start from a spec in `docs/specs/`; see `/wf:spec`." Then write a `CLAUDE.md` containing only the line `@AGENTS.md` (Claude Code's import), so both hosts read the same rules.
 
 ### 5. Verify
 

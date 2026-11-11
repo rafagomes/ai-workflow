@@ -16,7 +16,7 @@ In hosts that do not substitute `$ARGUMENTS` (e.g. Codex), it is the text the us
 - `--commit` → once the feature is complete and verified, commit by following `/wf:commit`, skipping only the step that asks you to approve the commit plan. Output only the `git log --oneline -<N>` lines for the new commits.
 - `--pr` → implies `--commit`, then open the PR by following `/wf:pr`, skipping only the step that asks you to approve the title and body. `/wf:pr`'s fresh-context review still runs. Output only the `git log` lines, the PR URL and the review verdict. If the review has not converged after two rounds, leave the PR as a draft and report the findings.
 
-Ask decisions with AskUserQuestion (recommended option first, labelled "(Recommended)"). Where AskUserQuestion is unavailable (e.g. in Codex), ask the same question in chat as a short numbered list and wait for the answer. If the user cannot be asked (a headless run), take the recommended option and list it as an assumption in the report.
+Ask decisions with AskUserQuestion (recommended option first, labelled "(Recommended)"). Where AskUserQuestion is unavailable but the user can answer in chat (e.g. Codex), ask the same question in chat as a short numbered list and wait for the answer; a headless run or a dispatched agent has no such user, and the headless rule applies instead. If the user cannot be asked (a headless run), take the recommended option and list it as an assumption in the report.
 
 ## Branch
 

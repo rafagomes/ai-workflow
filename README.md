@@ -281,7 +281,7 @@ claude --plugin-dir /path/to/ai-workflow
 | Document | About |
 |---|---|
 | [Trunk-Based Workflow](docs/TRUNK_BASED_WORKFLOW.md) | Why and how the toolkit enforces trunk-based development — rules, recipes, FAQ |
-| [Skill Quality](docs/SKILL_QUALITY.md) | How skills are benchmarked before and after changes |
+| [Skill Quality](docs/SKILL_QUALITY.md) | How the workhorse skills are tested with local `claude plugin eval` suites before and after changes |
 | [Changelog](CHANGELOG.md) | What changed in each version |
 | [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [Code of Conduct](CODE_OF_CONDUCT.md) | Project policies |
 

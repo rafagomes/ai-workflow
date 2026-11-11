@@ -1,125 +1,117 @@
 # Skill Quality Process
 
-> How skills in this repo are designed, benchmarked, and refined — not vibes.
+> How skills in this repo are tested and refined: with measurements, not vibes.
 
-Skills compound: a small improvement that fires hundreds of times per week is worth more than a big improvement that fires once. That also means a small *regression* compounds. We benchmark before we ship.
+Skills compound: a small improvement that fires hundreds of times per week is worth more than a big improvement that fires once. That also means a small *regression* compounds. For the skills that matter, we measure before we ship.
 
----
+The measuring tool is Claude Code's built-in `claude plugin eval`. The cases live in [`evals/`](../evals/) and run against the working tree.
 
-## The loop
-
-The skill-creator workflow (from `claude-plugins-official`) formalizes this, but the shape is simple:
-
-1. **Draft or edit** the skill.
-2. **Build 3–5 real test specs** that cover the complexity range the skill will actually see.
-3. **Run A/B in parallel** — one agent with the skill, one without (new skill) or one with the prior version (iteration).
-4. **Grade programmatically** — assertions that score correctness, hygiene, and cost. No eyeballing.
-5. **Read the qualitative outputs** — commits, PR bodies, file structure. Numbers miss style.
-6. **Decide** — ship, iterate, or discard.
-
-Seed repos are throwaway (`git init`, implement, measure, delete). Each run happens in its own workspace so agents can't interfere.
+> **Evals are local and opt-in. They are never run in CI.** Every run calls a model on the developer's own account and costs money, and this project's pipeline uses nothing paid. Do not add `claude plugin eval` to a workflow in `.github/`.
 
 ---
 
-## What we measure
+## When to run
 
-Depending on the skill, the fixed assertion set covers some mix of:
+Not for every skill change. A run costs real money and a few minutes, so we reserve it for:
 
-- **Correctness** — tests pass, verification criteria met, spec-specific outputs produced
-- **Hygiene** — commits split by logical concern, conventional commit messages, no config drift
-- **PR readiness** — summary, spec link, security verdict, test plan (per layer)
-- **Cost** — wall-clock duration, token usage (higher isn't worse if quality lifts; we watch the tradeoff)
+- **Workhorse skills**: `/wf:commit`, `/wf:feature`, `/wf:fix`, `/wf:pr`. They fire constantly and regressions compound fast.
+- **Structural rewrites**: any change that drops, adds or reorders a full step.
+- **Skills under suspicion**: if a skill "feels" slow or inconsistent, measure before tuning.
 
-Assertions are graded with a Python script, not an LLM. That keeps scoring cheap, reproducible, and free of model bias. Subjective dimensions (code style, commit message quality) get read qualitatively after the numbers settle.
+Description tweaks, typo fixes and example additions skip it. Use judgment.
 
----
+## What is in the suite
 
-## Case study: `/feature` (Apr 2026)
+`evals/<case>/` holds one case: a `case.yaml` (prompt, limits, graders) and a `scaffold.sh` that builds a throwaway git repository for it. Every case is tagged with its skill, and none needs a network, GitHub or a remote.
 
-The `/feature` skill implements a feature end-to-end from a spec file. It's the workhorse — it fires dozens of times per week across the team — so small lifts matter.
-
-### Iteration 1 — does the skill earn its keep?
-
-**Setup:** 4 specs spanning complexity (pure util, stdlib CLI, FastAPI CRUD, refactor). With-skill vs plain-Claude baseline, 8 parallel agents.
-
-| | with `/feature` | baseline |
+| Case | Tag | What it checks |
 |---|---|---|
-| Pass rate | **100%** (46/46) | 84.7% (39/46) |
-| Avg duration | 163.7s | 145.1s |
-| Avg tokens | 39,178 | 35,918 |
+| `commit-split-python` | `commit` | Three unrelated changes become three conventional commits; an untracked `.env` is never staged; no `git add .`, push or `--no-verify` |
+| `commit-one-concern-shell` | `commit` | One concern is one commit (no invented splits); build output and scratch files stay untracked |
+| `feature-python-issue-branch` | `feature` | Branch `feat/42-slug-truncate` from Trunk Metadata; a test for each verification criterion; checks run; nothing committed |
+| `feature-shell-unfiled` | `feature` | Unfiled issue gives `feat/quiet-flag` (no number); shell test harness covers the criteria; nothing committed |
+| `fix-python-pagination` | `fix` | Off-by-one fixed (checked by running the code); regression test added; tests run before and after; root cause reported; nothing committed |
+| `fix-shell-kv-parse` | `fix` | Value truncated at `=` fixed (checked by running the script); regression check added; root cause reported |
+| `pr-dirty-tree` | `pr` | Uncommitted changes: stops and points at `/wf:commit`; no push, no PR |
+| `pr-on-trunk` | `pr` | On `main`: stops and asks for a feature branch; no push, no PR |
 
-**Where the lift came from:** Only **two** assertions discriminated — security verdict in PR body (4/4 vs 0/4) and commit-split ≥3 (4/4 vs 1/4). Correctness, conventional commits, test coverage, PR summary/spec-link — baseline handled them all unprompted.
+Graders are deterministic wherever a check exists: regexes over the final message or over files the run produced, and `tool_used` checks on the tool calls. Only the two root-cause assertions in the `fix` cases use an LLM judge (haiku by default), because "names the cause, not the symptom" has no mechanical check. A `skill-fired` grader in every case is marked `arm: with-only`: it shows that the skill loaded and is not part of the score.
 
-**Interpretation:** Today's Claude is strong enough to implement tight specs without prompting. The skill earns its keep on *pre-merge hygiene* — the stuff reviewers notice.
+## How to run
 
-### Iteration 2 — trim the dead weight, stress-test with ambiguity
+Run from the repo root. Cases that build a repository need `--scaffold`, and the agent's shell needs a grant:
 
-Based on iter-1 findings:
-- **Compressed** the test-strategy discovery step (4 bullets → 1 paragraph)
-- **Sharpened** the security-verdict format with an explicit example for zero-surface features
-- **Added** concrete commit-split patterns (CRUD: db → schemas → endpoints → tests)
-- **Named** the "impl + docs = 2 commits" anti-pattern so the model would recognize it
-- **Added** a 5th eval: an intentionally underspecified rate-limiter (algorithm, time source, defaults = implementer's call) to test whether the correctness gap emerges on messier specs
+```bash
+# One case, one run, no baseline: the cheapest sanity check
+claude plugin eval . --case commit-one-concern-shell --runs 1 --ablation none \
+  --no-publish --scaffold --trust-plugin --allow-tools Bash Write Edit --max-cost-usd 1
 
-| | v2 (trimmed) | v1 (original) |
-|---|---|---|
-| Pass rate | **100%** (59/59) | 87.9% (52/59) |
-| Avg duration | **134.5s** | 211.6s (−36%) |
-| Avg tokens | **34,568** | 44,484 (−22%) |
+# One skill, by tag
+claude plugin eval . --tag fix --scaffold --no-publish --allow-tools Bash Write Edit --max-cost-usd 5
 
-**v2 won on every axis.** Shorter skill → faster, cheaper, *and* more reliable. Two v1 runs (slug-py, legacy-refactor) over-generalized a "don't push" instruction into "don't commit either" — v1's longer prose created ambiguity that v2's leaner shape didn't.
-
-**Messy-spec finding:** Both variants scored 13/13 on rate-limiter. No correctness gap. **But** v1 took 488s vs v2's 131s because v1's self-review caught a real bug (`0.1 * 10 ≠ 1.0` float precision → infinite wait on `acquire()`) and iterated to fix it. v2 didn't hit the bug. Unclear whether v2 would have hit it in production; this warrants multi-seed verification.
-
-### What shipped
-
-v2. See `skills/feature/SKILL.md`. The review step (originally v1's step 7) was kept but compressed — the rate-limiter finding shows it occasionally catches real concurrency bugs that would otherwise ship. (The review has since moved out of `/feature`: `/pr` dispatches the `reviewer` agent on the committed branch.)
-
-### What didn't
-
-- Dropping the review step entirely — too risky based on rate-limiter evidence
-- Single-seed assumption — every cell in the matrix is n=1. A real prod change would want n=3 to bound noise
-
----
-
-## Running a benchmark
-
-The workspace layout we used:
-
-```
-skills/<skill>-workspace/
-├── seeds/                  # clean seed repos (one per eval)
-├── evals/evals.json        # eval definitions
-├── iteration-1/
-│   ├── eval-0-<name>/
-│   │   ├── with_skill/workspace/  # agent runs here
-│   │   └── without_skill/workspace/
-│   ├── REPORT.md
-│   └── summary.json
-├── grade.py                # assertion grader (programmatic)
-└── skill-snapshot-vN-SKILL.md  # for iterations against prior versions
+# The full suite against a no-plugin baseline (the default, `--ablation with-without`)
+claude plugin eval . --scaffold --no-publish --allow-tools Bash Write Edit --max-cost-usd 15 \
+  --json evals/results/latest.json
 ```
 
-The skill-creator's `aggregate_benchmark.py` expects a specific layout we didn't fully match; a 20-line `grade.py` + summary script was simpler and gave us the same information.
+Flags that matter:
 
----
+- `--scaffold` runs each case's `scaffold.sh` as you, outside the agent's sandbox. Pass it only for cases you or this repo's maintainers wrote.
+- `--allow-tools Bash Write Edit` grants the tools the skills need. The agent's shell runs in Claude Code's OS sandbox, confined to the run's workspace.
+- `--runs N` overrides the per-case run count (default 3). One run is a smoke test; use 3 or more before calling a result real.
+- `--max-cost-usd` is a hard ceiling. Set it every time.
+- `--no-publish` keeps the HTML report local.
+- `--threshold 0.8` makes the exit code non-zero below that score (default 1.0).
+- `--judge-model` changes the LLM judge; `--model` changes the model under test.
+
+### Iterating on a skill against its previous version
+
+To know whether an edit improved the *skill*, not just the gap over no plugin, run the same suite on the old commit and the new one and compare:
+
+```bash
+git worktree add .claude/worktrees/eval-base <old-commit-or-main>
+claude plugin eval .claude/worktrees/eval-base --tag feature --scaffold --no-publish \
+  --allow-tools Bash Write Edit --ablation none --runs 3 --json /tmp/base.json
+claude plugin eval . --tag feature --scaffold --no-publish \
+  --allow-tools Bash Write Edit --ablation none --runs 3 --json /tmp/new.json
+git worktree remove .claude/worktrees/eval-base
+```
+
+The target is a plugin path, so the old checkout is evaluated as it was. Check `git check-ignore -q .claude/worktrees/x` first (see the worktree rule in the global `CLAUDE.md`). Both worktrees need the same `evals/` directory; when the old commit predates a case, copy it in.
+
+## How to read results
+
+Each case prints a score (the weighted fraction of graders that passed, averaged over runs), the cost, and one line per grader. With the baseline arm on, the report also shows the score of the no-plugin run and the delta.
+
+- **A grader that passes in both arms measures Claude, not the skill.** Keep it only as a guard against regression; the value of the suite is in the graders where the plugin arm passes and the baseline does not.
+- **A grader that fails in both arms is probably a bad grader.** Read the trace before blaming the skill.
+- **Read the transcript, not only the number.** The HTML report links each run's trace. Numbers miss style: whether the commit plan was sensible, whether the root-cause sentence was true.
+- **One run is noise.** Before shipping a change on the strength of a delta, rerun with `--runs 3` or more.
+- If the trace shows `permission denied: git`, the run's sandbox has no usable `git`, and every case that needs it (all of `commit`, `pr`, and the branch and no-commit graders of `feature` and `fix`) scores wrongly. This was seen when the eval was started from inside another agent session. Run it from a plain terminal, and check `git --version` there first (2.31 or later is required).
+- A `grader threw ... does not exist` line means the run never produced the file the grader reads: usually a tool was not granted, or the agent stopped early. Look at the trace.
+
+## How to add a case
+
+1. Pick the behaviour the skill adds over plain Claude. If a no-skill run would do it anyway, it is a weak case.
+2. Make `evals/<skill>-<what-it-checks>/` with a `case.yaml` and a `scaffold.sh`. Start from `claude plugin eval init --bare <name>` if you want the blank template; the files here use the single-file `case.yaml` form (`schema_version: "1.1"`).
+3. The scaffold builds a tiny repository: varied fixtures (different languages, a Makefile `test` or `lint` target), no network, no remote. It runs in the empty workspace with a minimal environment, and a non-zero exit fails the run.
+4. Write the prompt the way a user would, and say that the run is non-interactive so the agent takes recommended defaults instead of waiting. Do not name the skill; the `skill-fired` grader tells you whether it loaded.
+5. Prefer deterministic graders. There is no command grader, so for state that only a command can show (commits, the result of running code), end the prompt with a line asking the agent to write it to a file (`git log ... > eval-commits.txt`) and grade the file with a `regex` grader using `target: { source: file, path: ... }`.
+6. Tag the case with the skill, keep `max_turns` and `timeout_seconds` tight, and check the case can fail: break the behaviour (or run the baseline arm) and see the grader go red.
 
 ## Principles we settled on
 
-- **A/B against the right baseline.** For new skills, the baseline is plain Claude with no skill. For iterations, the baseline is the prior version — we want to know if we improved *the skill*, not re-measure the gap over baseline.
-- **Measure what actually discriminates.** Most assertions passed for both variants. The two that didn't are where the skill's value lives. Double down on those; trim prose that doesn't move any needle.
+- **A/B against the right baseline.** For new skills, the baseline is plain Claude with no skill. For iterations, the baseline is the prior version: we want to know if we improved *the skill*, not re-measure the gap over baseline.
+- **Measure what actually discriminates.** Most assertions pass for both variants. The few that do not are where the skill's value lives. Double down on those; trim prose that moves no needle.
 - **Cost is a dimension, not just a footnote.** A skill that adds 30% tokens for no correctness lift is a tax. A skill that saves 36% duration *while* lifting correctness is a bargain.
-- **Qualitative review is not optional.** The grader said v1 and v2 tied on rate-limiter correctness. Reading the transcripts revealed v1 found a real bug and v2 didn't. Automation told half the story.
-- **Single-seed findings are directional, not definitive.** For skills we actually care about, multi-seed (n≥3 per cell) is the bar before calling a change "shipped."
+- **Qualitative review is not optional.** The grader said two versions tied on correctness; reading the transcripts showed one had found a real bug and the other had not. Automation told half the story.
+- **Single-seed findings are directional, not definitive.** For skills we care about, n of 3 or more per cell is the bar before calling a change shipped.
 
----
+## History
 
-## When to benchmark
+The first benchmark (April 2026) was on `/wf:feature`, then called `/feature`, with a hand-rolled harness: one agent with the skill, one without, a small `grade.py` over the outputs. Two findings shaped how we work now:
 
-Not for every skill change. The cost of benchmarking is real (spawning 8–10 subagents burns tokens), so we reserve it for:
+- **The skill earned its keep on pre-merge hygiene.** With four specs and 46 assertions, the skill scored 100% against 84.7% for plain Claude. Only two assertions discriminated (a security verdict in the PR body, and splitting work into three or more commits); correctness, conventional commits and tests were handled by baseline unprompted. Today's Claude implements tight specs well without help, so the skill's value is in what reviewers notice.
+- **Shorter prose won on every axis.** Trimming the skill (compressing test-strategy discovery, adding concrete commit-split patterns, naming the "impl + docs = 2 commits" anti-pattern) took the pass rate from 87.9% to 100%, duration down 36% and tokens down 22%. The longer version had made two runs over-generalize "don't push" into "don't commit either". The review step was kept because, on one messy spec, it caught a real float-precision bug; it has since moved to `/wf:pr`, which dispatches the `wf:reviewer` agent on the committed branch.
 
-- **Workhorse skills** — `/feature`, `/fix`, `/pr`. These fire constantly; regressions compound fast.
-- **Structural rewrites** — any change that drops, adds, or reorders a full step.
-- **Skills under suspicion** — if a skill "feels" slow or inconsistent, benchmark before tuning.
-
-Quick description tweaks, typo fixes, and example-adds can skip the loop. Use judgment.
+Every cell in that benchmark was n=1, which is why the single-seed principle above exists. The harness has been replaced by `claude plugin eval`, so these results are no longer reproducible with the repo's tools.

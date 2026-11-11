@@ -26,7 +26,7 @@ With no codebase yet, derive the document from the PRD and mark unconfirmed choi
 
 ## Interview
 
-Summarize what you learned first ("Here's what I understand about this project so far: ..."), then ask only what the code and docs do not answer, using AskUserQuestion in 3–4 rounds of at most 3–4 questions. For an inherited project, ask "is my understanding correct?" and "what would you change?" rather than "what do you want?". For a greenfield project with a PRD, propose a stack and ask for corrections instead of asking open questions. If the user cannot be asked (a headless run), write from what exists and list each assumption under Constraints and Limitations.
+Summarize what you learned first ("Here's what I understand about this project so far: ..."), then ask only what the code and docs do not answer, using AskUserQuestion in 3–4 rounds of at most 3–4 questions. Where AskUserQuestion is unavailable (e.g. in Codex), ask the same question in chat as a short numbered list and wait for the answer. For an inherited project, ask "is my understanding correct?" and "what would you change?" rather than "what do you want?". For a greenfield project with a PRD, propose a stack and ask for corrections instead of asking open questions. If the user cannot be asked (a headless run), write from what exists and list each assumption under Constraints and Limitations.
 
 **System**
 

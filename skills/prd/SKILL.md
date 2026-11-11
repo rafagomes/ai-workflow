@@ -16,7 +16,7 @@ Before starting, check what already exists:
 
 ### 1. Deep Interview
 
-Use AskUserQuestion to interview the user. If they gave a brief, a README or a pasted idea, restate it in 3-5 lines and interview only the gaps. Ask at most 3-4 questions per round. If the user cannot be asked (a headless run), write the PRD from what exists and list each guess under Risks and Open Questions.
+Use AskUserQuestion to interview the user. Where AskUserQuestion is unavailable (e.g. in Codex), ask the same question in chat as a short numbered list and wait for the answer. If they gave a brief, a README or a pasted idea, restate it in 3-5 lines and interview only the gaps. Ask at most 3-4 questions per round. If the user cannot be asked (a headless run), write the PRD from what exists and list each guess under Risks and Open Questions.
 
 **Start broad, then go deep:**
 

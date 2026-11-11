@@ -25,7 +25,7 @@ If neither a PRD nor an architecture doc exists, say so and offer two choices: c
 
 ## Interview
 
-Draft the phase split, the MVP boundary and the parallelism from the docs first. Ask only what the docs leave open, at most 4 questions in one AskUserQuestion call; if the user cannot be asked, proceed from the docs and list each assumption as an open question. Typical gaps: priorities and deadlines, how many parallel worktrees/agents are practical (solo or team), where a human review is needed before continuing, build/test/lint commands if the project's agent instructions (`CLAUDE.md` or `AGENTS.md`) lacks them. Push back where two tasks touch the same files: they must be sequential.
+Draft the phase split, the MVP boundary and the parallelism from the docs first. Ask only what the docs leave open, at most 4 questions in one AskUserQuestion call. Where AskUserQuestion is unavailable (e.g. in Codex), ask the same question in chat as a short numbered list and wait for the answer. If the user cannot be asked at all, proceed from the docs and list each assumption as an open question. Typical gaps: priorities and deadlines, how many parallel worktrees/agents are practical (solo or team), where a human review is needed before continuing, build/test/lint commands if the project's agent instructions (`CLAUDE.md` or `AGENTS.md`) lacks them. Push back where two tasks touch the same files: they must be sequential.
 
 A full roadmap needs an MVP boundary: the last phase required to ship the MVP. Take it from the PRD's "in scope (v1)" section; if that does not settle it, ask.
 

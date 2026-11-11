@@ -14,7 +14,7 @@ Create an Architecture Decision Record. Argument: $ARGUMENTS
 
 ## Interview
 
-Use AskUserQuestion to extract the decision. Keep it focused — an ADR is one decision, not a design doc. If the decision was just made in this session, draft from the conversation and ask only for what is missing.
+Use AskUserQuestion to extract the decision. Where AskUserQuestion is unavailable (e.g. in Codex), ask the same question in chat as a short numbered list and wait for the answer. Keep it focused — an ADR is one decision, not a design doc. If the decision was just made in this session, draft from the conversation and ask only for what is missing.
 
 1. **What's the decision?** — What are you deciding? What triggered this decision?
 2. **Context** — What constraints, requirements, or pressures led to this? What's the current state?

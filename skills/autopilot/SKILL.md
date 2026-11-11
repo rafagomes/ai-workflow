@@ -87,7 +87,7 @@ Wave 1: <task>, <task>     Wave 2: <task>
 
 Skip phases whose Status in the roadmap index is `Completed`. Within a phase, look each task up by its branch before planning it: `gh pr list --state all --head <branch> --json number,state`. The branch name is derived from the task, never invented per run — the one `/wf:feature` defines under "Branch": `<type>/<issue-number>-<slug>`, or `<type>/<slug>` when there is no issue, where the slug is the spec file's name without its prefix and `.md`, and for a slice the parent's slug joined to the slice's (`jira-sync-webhook`) — so a later run, or a PR someone opened with `/wf:feature`, is found under the same name.
 
-- `MERGED` → done; leave it out of the plan.
+- `MERGED` → done; leave it out of the plan. A phase that is not `Completed` and whose tasks are all `MERGED` (or skipped) goes straight to step 5f, so a re-run after a human merged the parked T2 PRs records the phase.
 - `OPEN` → an earlier run got this far. Do not dispatch a second writer; pick the PR up at step 5b. If its last comment is already a `PASS` verdict, go straight to 5e (autonomous) or report it as waiting on the human (`--supervised`, or a T2 PR). If it needs fixes there is no writer to resume, so dispatch a fresh one on the existing branch with the findings; the same goes for a rebase in step 5e.
 - no PR → dispatch. Only `CLOSED` ones → dispatch in autonomous mode; in `--supervised` mode the human closed it, so ask for `retry <task>` or `skip <task>`.
 

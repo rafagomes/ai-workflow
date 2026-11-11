@@ -56,4 +56,4 @@ Write to `docs/ARCHITECTURE.md` using the structure in `references/template.md` 
 2. Suggest next steps based on what exists:
    - No threat model and the system has trust boundaries? → "Consider `/wf:threat-model`"
    - A decision here deserves its own record? → "Capture it with `/wf:adr <title>`"
-   - Ready to build? → "Create feature specs with `/wf:spec <name>`, then `/wf:roadmap`"
+   - Ready to plan the build? → "Run `/wf:roadmap`, then `/wf:spec <task>` per task (or `/wf:spec <name>` directly for one feature outside a roadmap)"

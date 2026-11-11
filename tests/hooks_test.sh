@@ -121,6 +121,16 @@ allowed 'echo "git push -f origin main"'
 allowed 'git commit -m "never git push --force origin main"'
 allowed "git push -f origin 'feat/x'"
 
+# --- $(...) inside double quotes (heredoc messages) stays inside its token
+allowed $'git commit -m "$(cat <<\'EOF\'\nfix: say "use -n" in docs\nEOF\n)"'
+allowed $'git commit -m "$(cat <<\'EOF\'\ndocs: explain "never pass --no-verify"\nEOF\n)"'
+allowed $'git commit -m "$(cat <<\'EOF\'\ndocs: one " quote\ngit push -f origin main\nEOF\n)"'
+allowed $'gh pr review 3 --comment -b "$(cat <<\'EOF\'\nsay "gh pr review --approve" is human only\nEOF\n)"'
+allowed $'git commit -m "$(printf %s "a (nested) \\"-n\\"")" && git status'
+blocked no-verify $'git commit --no-verify -m "$(cat <<\'EOF\'\nx "quoted"\nEOF\n)"'
+blocked no-verify $'git commit -m "$(cat <<\'EOF\'\nx "quoted"\nEOF\n)" --no-verify'
+blocked trunk-force-push $'git commit -m "$(cat <<\'EOF\'\nx "quoted"\nEOF\n)" && git push -f origin main'
+
 # --- trunk delete
 blocked trunk-delete 'git push origin --delete main'
 blocked trunk-delete 'git push --delete origin master'

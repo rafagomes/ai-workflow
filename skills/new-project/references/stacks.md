@@ -1,6 +1,6 @@
 # Stack reference
 
-Per-stack choices for the Makefile, the pre-commit config and CLAUDE.md. Use the row for the chosen stack; for a stack not listed, pick the community-standard test runner and linter and tell the user what you chose.
+Per-stack choices for the Makefile, the pre-commit config, the CI workflow and CLAUDE.md. Use the row for the chosen stack; for a stack not listed, pick the community-standard test runner and linter and tell the user what you chose.
 
 | Stack | test | lint | typecheck | build | lint-changed |
 |-------|------|------|-----------|-------|--------------|
@@ -15,5 +15,6 @@ Per-stack choices for the Makefile, the pre-commit config and CLAUDE.md. Use the
 - `golangci-lint` v2 requires `version: "2"` at the top of `.golangci.yml`; omit the file unless a setting is needed.
 - `lint-changed` must exit 0 when no matching file changed and when the repo has no commits yet (`git diff HEAD` fails then); guard with `git rev-parse --verify HEAD >/dev/null 2>&1 || exit 0` and add untracked files via `git ls-files --others --exclude-standard`.
 - Pre-commit hooks per stack: python `ruff-pre-commit` (ids `ruff`, `ruff-format`), go `golangci-lint`, typescript a local `eslint` hook, rust local `cargo fmt --check` and `cargo clippy` hooks. Each repo's `rev` comes from `git ls-remote --tags <repo>`.
+- CI setup step, before `make lint` (SHA-pin each action, see `/wf:new-project` step 3): python `actions/setup-python` (`python-version` set to the project's) then `pip install -e ".[dev]"` or the project's declared install; go `actions/setup-go` with `go-version-file: go.mod`, plus `golangci/golangci-lint-action` only if `golangci-lint` is not otherwise installed; typescript `actions/setup-node` with `node-version-file: .nvmrc` or a fixed LTS, then `npm ci`; rust none, since the runner has `cargo`, `clippy` and `rustfmt`.
 - Add a security scanner (`bandit`, `gosec`) only if the user asks; gitleaks already covers secrets.
 - If a CLI's flags are in doubt, check `<tool> --help` before writing them into the Makefile.

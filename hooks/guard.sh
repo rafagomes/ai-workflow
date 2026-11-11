@@ -14,10 +14,13 @@
 # `git -c core.hooksPath=...`, `sudo -u user git ...`, scripts, heredoc bodies
 # (their lines are read as commands, a rare false positive), or `gh api`. A
 # determined agent can get around it; an honest mistake is caught.
-# A `$(...)` inside double quotes (a heredoc commit message) is kept as one token,
-# found by matching parens while skipping quotes, escapes and heredoc bodies. If
-# that scan finds no closing paren, the command is checked again with plain quote
-# tracking too, which can false-block a message holding an odd number of quotes.
+# The rules run on the command read two ways (plain quote tracking, and with a
+# `$(...)` inside double quotes kept whole) and on the body of every `$(...)` and
+# backtick span, recursively (depth 4, 100 spans; beyond that it blocks). The
+# command is blocked if any reading blocks, so a parsing quirk fails closed.
+# Known false positive: a `git commit -m "$(cat <<'EOF' ... EOF)"` message with an
+# odd number of quotes around `-n`, `--no-verify` or a line starting `git push -f`
+# can be blocked. Write the message to a file and use `git commit -F <file>`.
 #
 # Fails open: with neither jq nor python3, or JSON it cannot parse, the command is
 # allowed and a one-line warning goes to stderr, so a missing tool never bricks a
@@ -58,19 +61,22 @@ deny() { # deny <rule> <message>
     exit 2
 }
 
-# Split a command string into segments, one per line, tokens joined by $US.
-# tokenize <command> <aware>: with aware=1 a $(...) inside double quotes stays in
-# its token (skipping '...' and "..." spans, backslash escapes and heredoc bodies
-# when looking for the closing paren); with aware=0 it is plain quote tracking.
-# Exits 3 when an aware scan finds no closing paren, so the caller can also run
-# the plain tokenization (fail closed).
-tokenize() {
-    printf '%s' "$1" | awk -v aware="$2" '
+# One awk program, three modes (aware):
+#   0  tokenize with plain quote tracking
+#   1  tokenize, keeping a $(...) inside double quotes in its token
+#   2  print the body of every outermost $(...) and `...` span, one per line
+# Tokenizing splits a command string into segments, one per line, tokens joined
+# by $US; a newline inside a token is written as $RS.
+# shellcheck disable=SC2016 # awk program text, not a shell expansion
+AWK_PROG='
     function add(c) { tok = tok (c == "\n" ? "\036" : c); has = 1 }
     function endtok() { if (has) { seg = seg (segn++ ? "\037" : "") tok } tok = ""; has = 0 }
     function endseg() { endtok(); if (segn > 0) print seg; seg = ""; segn = 0 }
+    function emit(b) { if (b != "") { gsub(/\n/, "\036", b); print b } }
+    # scan_subst: end index of the $(...) starting at i, skipping quoted spans,
+    # escapes and heredoc bodies; sets unterm when there is no closing paren
     function scan_subst(i,   j, depth, ch, hd, k, e, line, p, w, qc) {
-        depth = 0; hd = ""
+        depth = 0; hd = ""; unterm = 0
         for (j = i + 1; j <= len; j++) {
             ch = substr(s, j, 1)
             if (ch == "\\") j++
@@ -95,7 +101,7 @@ tokenize() {
                 k = j + 1
                 while (1) {
                     if (k > len) { j = len; break }
-                    e = index(substr(s, k), "\n"); e = e ? k + e - 1 : len + 1
+                    for (e = k; e <= len && substr(s, e, 1) != "\n"; e++) ;
                     line = substr(s, k, e - k); sub(/^\t+/, "", line)
                     if (line == hd) { j = e - 1; hd = ""; break }
                     k = e + 1
@@ -107,9 +113,44 @@ tokenize() {
         unterm = 1
         return len
     }
+    function extract(   i, j, e, ch, depth, key) {
+        # A: parens counted with no quote handling
+        for (i = 1; i <= len; i++) {
+            if (substr(s, i, 1) == "$" && substr(s, i + 1, 1) == "(") {
+                depth = 0
+                for (j = i + 1; j <= len; j++) {
+                    ch = substr(s, j, 1)
+                    if (ch == "(") depth++
+                    else if (ch == ")" && --depth == 0) break
+                }
+                e = (j > len) ? len : j - 1
+                key[i ":" e] = 1
+                emit(substr(s, i + 2, e - i - 1))
+                i = (j > len) ? len : j
+            }
+        }
+        # B: quote-aware scan; skip bodies already printed
+        for (i = 1; i <= len; i++) {
+            if (substr(s, i, 1) == "$" && substr(s, i + 1, 1) == "(") {
+                j = scan_subst(i)
+                e = unterm ? len : j - 1
+                if (!((i ":" e) in key)) emit(substr(s, i + 2, e - i - 1))
+                i = unterm ? len : j
+            }
+        }
+        # C: backticks, paired in order
+        for (i = 1; i <= len; i++) {
+            if (substr(s, i, 1) == "`") {
+                for (j = i + 1; j <= len && substr(s, j, 1) != "`"; j++) ;
+                emit(substr(s, i + 1, j - i - 1))
+                i = j
+            }
+        }
+    }
     { s = s (NR > 1 ? "\n" : "") $0 }
     END {
         len = length(s); q = ""
+        if (aware == 2) { extract(); exit }
         for (i = 1; i <= len; i++) {
             c = substr(s, i, 1)
             if (q == "\047") { if (c == "\047") q = ""; else add(c); continue }
@@ -138,9 +179,9 @@ tokenize() {
             else add(c)
         }
         endseg()
-        exit unterm ? 3 : 0
     }'
-}
+
+tokenize() { printf '%s' "$1" | LC_ALL=C awk -v aware="$2" "$AWK_PROG"; }
 
 git_dir() { git -C "$WD" "$@" 2>/dev/null; }
 
@@ -266,20 +307,30 @@ check_gh() { # check_gh <args...>
 }
 
 DEPTH=0
-check_string() { # check_string <command string>
-    local segs rc origwd
+NBODIES=0
+# check_string <command string>: runs the rules on the command read two ways (plain
+# quote tracking, and with $(...) inside double quotes kept whole) and blocks if
+# either blocks, then on the body of every $(...) and backtick span, recursively.
+check_string() {
+    local segs bodies b origwd
     DEPTH=$((DEPTH + 1))
-    if [ $DEPTH -gt 4 ]; then DEPTH=$((DEPTH - 1)); return 0; fi
-    origwd="$WD"
-    segs=$(tokenize "$1" 1); rc=$?
-    check_segs "$segs"
-    if [ $rc -eq 3 ]; then
-        # an unterminated $(...) may have swallowed the rest of the command: also
-        # check the plain tokenization, which cannot hide anything behind it
-        WD="$origwd"
-        check_segs "$(tokenize "$1" 0)"
+    if [ $DEPTH -gt 4 ]; then
+        deny nesting "command nesting is too deep to inspect; run the steps as separate commands"
     fi
-    WD="$origwd"
+    origwd="$WD"
+    check_segs "$(tokenize "$1" 1)"; WD="$origwd"
+    check_segs "$(tokenize "$1" 0)"; WD="$origwd"
+    bodies=$(tokenize "$1" 2)
+    if [ -n "$bodies" ]; then
+        while IFS= read -r b; do
+            NBODIES=$((NBODIES + 1))
+            if [ $NBODIES -gt 100 ]; then
+                deny nesting "too many command substitutions to inspect; split the command"
+            fi
+            check_string "${b//$RS/$'\n'}"
+            WD="$origwd"
+        done <<<"$bodies"
+    fi
     DEPTH=$((DEPTH - 1))
 }
 

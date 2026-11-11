@@ -38,10 +38,10 @@ Reference existing architecture, TDD and security docs; don't repeat them.
 
 ## Slice (trunk-based)
 
-Estimate size in **added source lines only**; tests never count toward the budget. A PR is one concern, and ~500 added source lines is the point to check that it still is (the size guide in your global `CLAUDE.md`).
+Estimate size in **added source lines only**; tests never count toward the budget. A PR is one concern, and roughly 1,000 added source lines or ~40 changed source files is the point to check that it still is (the size guide in your global `CLAUDE.md`).
 
-- **Up to ~500 lines, or larger but one concern that is meaningless in parts:** one spec, one PR, a single file. For the larger case, say in the spec why it stays together.
-- **Over ~500 lines and more than one concern:** slice into independently mergeable vertical slices, each one concern, under `docs/specs/NNN_<slug>/`. Never cut one concern into slices that only make sense together.
+- **Up to ~1,000 lines, or larger but one concern that is meaningless in parts:** one spec, one PR, a single file. For the larger case, say in the spec why it stays together.
+- **Over ~1,000 lines and more than one concern:** slice into independently mergeable vertical slices, each one concern, under `docs/specs/NNN_<slug>/`. Never cut one concern into slices that only make sense together.
 
 **Slicing rules:**
 - Every slice leaves the trunk branch deployable. If a slice adds user-visible behavior that isn't ready, name a **feature flag** (default off).
@@ -53,7 +53,8 @@ Estimate size in **added source lines only**; tests never count toward the budge
 - **Type:** conventional-commit prefix (`feat`, `fix`, `refactor`, `chore`, `test`, `docs`, `perf`, `build`, `ci`, `security`). Drives the branch prefix and the `type:*` label.
 - **Flag:** exact flag name (default off), or `none` if it ships user-ready. This is the single source for the flag.
 - **Depends on:** other slice numbers or specs that must merge first; `—` if independent.
-- **Complexity:** `low` is under ~150 added source lines, `med` under ~500, `high` is more than that or more than one concern. A `high` slice is a smell to re-slice; if you keep it, add a `## Slicing` section saying why one PR is still defensible.
+- **Complexity:** `low` is under ~300 added source lines, `med` under ~1,000, `high` is more than that or more than one concern. A `high` slice is a smell to re-slice; if you keep it, add a `## Slicing` section saying why one PR is still defensible.
+- **Risk:** `T0`, `T1` or `T2` with a one-line why, e.g. `T2 — changes the session token format`. Pick it from the definition in **Risk tiers** in your global `CLAUDE.md`: T2 when the slice touches a security trigger, a migration or schema, CI/CD or infra, a public contract, a shared core module or anything hard to reverse; otherwise T1; T0 only for what may skip the reviewer. Highest match wins, and when unsure take the higher. Size does not set it. `/wf:feature` re-checks it against the diff.
 - **Issue:** `—` until `/wf:issues` fills it with `#<number>`.
 
 **Sliced index** (`docs/specs/NNN_<slug>/README.md`). The Slices table is the source of truth for `/wf:issues`:
@@ -66,10 +67,10 @@ Estimate size in **added source lines only**; tests never count toward the budge
 
 ## Slices
 
-| # | Slice | Type | Flag | Depends on | Complexity | Issue |
-|---|-------|------|------|------------|------------|-------|
-| 001 | [slice-name](001_slice-name.md) | feat | `none` or `flag_name` | — | low/med/high | — |
-| 002 | [slice-name](002_slice-name.md) | feat | `flag_name` | 001 | low/med/high | — |
+| # | Slice | Type | Flag | Depends on | Complexity | Risk | Issue |
+|---|-------|------|------|------------|------------|------|-------|
+| 001 | [slice-name](001_slice-name.md) | feat | `none` or `flag_name` | — | low/med/high | T1 — <why> | — |
+| 002 | [slice-name](002_slice-name.md) | feat | `flag_name` | 001 | low/med/high | T2 — <why> | — |
 
 ## Rollout
 [When each flag flips on, who owns the decision, what verifies the rollout.]
@@ -85,6 +86,7 @@ Write each sub-spec with the single-file template below, but omit Trunk Metadata
 - **Flag:** `none` or `flag_name`
 - **Depends on:** — | NNN | #N
 - **Complexity:** low/med/high
+- **Risk:** T1 — <one-line why>
 - **Issue:** — (filled by `/wf:issues`)
 ```
 

@@ -26,7 +26,7 @@ count_bak() { find "$1" -maxdepth 1 -name "$2.bak.*" 2>/dev/null | wc -l | tr -d
 copy_clone() {
     mkdir -p "$1"
     cp -R "$REPO/install.sh" "$REPO/uninstall.sh" "$REPO/dotfiles" \
-          "$REPO/settings.example.json" "$REPO/extras" "$1/"
+          "$REPO/settings.example.json" "$REPO/extras" "$REPO/agents" "$1/"
 }
 
 # Fresh scenario: its own HOME and its own clone copy. Sets CLONE, HOME_DIR, PRIMARY.
@@ -41,6 +41,13 @@ scenario() {
 }
 install()   { local dir="$1"; shift; HOME="$HOME_DIR" CLAUDE_DIR="$dir" bash "$CLONE/install.sh" "$@" >/dev/null 2>&1; }
 uninstall() { HOME="$HOME_DIR" CLAUDE_DIR="$1" bash "$CLONE/uninstall.sh" >/dev/null 2>&1; }
+# Codex runs: CODEX is the throwaway CODEX_HOME, CLAUDE_DIR is the primary dir.
+install_codex()   { HOME="$HOME_DIR" CLAUDE_DIR="$PRIMARY" CODEX_HOME="$CODEX" bash "$CLONE/install.sh" --no-settings --codex >/dev/null 2>&1; }
+uninstall_codex() { HOME="$HOME_DIR" CLAUDE_DIR="$PRIMARY" CODEX_HOME="$CODEX" bash "$CLONE/uninstall.sh" --codex >/dev/null 2>&1; }
+# toml_get <file> <key>: print one top-level string key (tomllib needs Python 3.11+).
+toml_get() { python3 -I -c 'import sys,tomllib; print(tomllib.load(open(sys.argv[1],"rb"))[sys.argv[2]], end="")' "$1" "$2"; }
+# The reviewer body: everything after the closing --- of the frontmatter.
+body_of() { python3 -I -c 'import sys; print(open(sys.argv[1]).read().split("---\n",2)[2], end="")' "$1"; }
 target()    { readlink "$1" 2>/dev/null || echo "<none>"; }
 
 HAD_SETTINGS=0
@@ -144,6 +151,88 @@ rc=0
 HOME="$HOME_DIR" CLAUDE_DIR="$PRIMARY" bash "$CLONE/install.sh" --bogus >/dev/null 2>&1 || rc=$?
 check "unknown argument exits non-zero" test "$rc" -ne 0
 check "unknown argument links nothing" test ! -e "$PRIMARY/CLAUDE.md"
+
+# 10. Codex: a default run creates nothing under CODEX_HOME.
+scenario
+CODEX="$HOME_DIR/.codex"
+HOME="$HOME_DIR" CLAUDE_DIR="$PRIMARY" CODEX_HOME="$CODEX" bash "$CLONE/install.sh" --no-settings >/dev/null 2>&1
+check "default run: CODEX_HOME not created" test ! -e "$CODEX"
+
+if python3 -c 'import tomllib' 2>/dev/null; then
+# 11. --codex: AGENTS.md linked, reviewer agent generated and parseable.
+scenario
+CODEX="$HOME_DIR/.codex"
+install_codex
+TOML="$CODEX/agents/wf-reviewer.toml"
+check_eq "--codex: AGENTS.md link" "$CLONE/dotfiles/CLAUDE.md" "$(target "$CODEX/AGENTS.md")"
+check "--codex: reviewer agent is a regular file" test -f "$TOML" -a ! -L "$TOML"
+check_eq "--codex: agent name" "wf-reviewer" "$(toml_get "$TOML" name)"
+check "--codex: agent description non-empty" test -n "$(toml_get "$TOML" description)"
+check_eq "--codex: instructions are the reviewer body" "$(body_of "$CLONE/agents/reviewer.md")" "$(toml_get "$TOML" developer_instructions)"
+check "--codex: Claude dir still gets CLAUDE.md" test -L "$PRIMARY/CLAUDE.md"
+# 12. Idempotent: same file, no backups.
+cp "$TOML" "$TMP/first.toml"
+install_codex
+check "idempotent: agent unchanged" cmp -s "$TMP/first.toml" "$TOML"
+check_eq "idempotent: no AGENTS.md backup" 0 "$(count_bak "$CODEX" AGENTS.md)"
+check_eq "idempotent: no agent backup" 0 "$(count_bak "$CODEX/agents" wf-reviewer.toml)"
+# 13. The agent follows its source, and quotes and backslashes survive.
+{
+    printf '%s\n' '---' 'name: reviewer' 'description: Says "hi" \ and a path C:\x' '---'
+    printf '%s\n' 'Line one "quoted" \n not an escape' '' "It's fine."
+} > "$CLONE/agents/reviewer.md"
+install_codex
+check_eq "escaping: description" 'Says "hi" \ and a path C:\x' "$(toml_get "$TOML" description)"
+check_eq "escaping: body verbatim" "$(body_of "$CLONE/agents/reviewer.md")" "$(toml_get "$TOML" developer_instructions)"
+# A body that cannot be a literal string fails loudly and leaves the old agent alone.
+cp "$TOML" "$TMP/before.toml"
+printf '%s\n' '---' 'name: reviewer' 'description: d' '---' "has ''' inside" > "$CLONE/agents/reviewer.md"
+rc=0
+HOME="$HOME_DIR" CLAUDE_DIR="$PRIMARY" CODEX_HOME="$CODEX" bash "$CLONE/install.sh" --no-settings --codex >/dev/null 2>&1 || rc=$?
+check "triple quote: install fails" test "$rc" -ne 0
+check "triple quote: old agent kept" cmp -s "$TMP/before.toml" "$TOML"
+check_eq "triple quote: no stray temp files" 1 "$(find "$CODEX/agents" -type f | wc -l | tr -d ' ')"
+
+# 14. Backup and restore of pre-existing Codex files; uninstall without --codex
+#     leaves Codex alone; uninstall --codex removes only what install created.
+scenario
+CODEX="$HOME_DIR/.codex"
+TOML="$CODEX/agents/wf-reviewer.toml"
+mkdir -p "$CODEX/agents"
+echo "my agents rules" > "$CODEX/AGENTS.md"
+echo 'name = "wf-reviewer"' > "$TOML"
+install_codex
+check_eq "backup: AGENTS.md linked" "$CLONE/dotfiles/CLAUDE.md" "$(target "$CODEX/AGENTS.md")"
+check_eq "backup: AGENTS.md backup made" 1 "$(count_bak "$CODEX" AGENTS.md)"
+check_eq "backup: hand-written agent backed up" 1 "$(count_bak "$CODEX/agents" wf-reviewer.toml)"
+check_eq "backup: generated agent in place" "wf-reviewer" "$(toml_get "$TOML" name)"
+uninstall "$PRIMARY"
+check_eq "plain uninstall: Codex AGENTS.md link kept" "$CLONE/dotfiles/CLAUDE.md" "$(target "$CODEX/AGENTS.md")"
+check "plain uninstall: Codex agent kept" test -f "$TOML"
+uninstall_codex
+check_eq "restore: AGENTS.md content" "my agents rules" "$(cat "$CODEX/AGENTS.md")"
+check_eq "restore: agent content" 'name = "wf-reviewer"' "$(cat "$TOML")"
+check_eq "restore: no AGENTS.md backup left" 0 "$(count_bak "$CODEX" AGENTS.md)"
+# Without backups, uninstall removes the link and the generated file.
+scenario
+CODEX="$HOME_DIR/.codex"
+install_codex
+uninstall_codex
+check "uninstall --codex: AGENTS.md removed" test ! -e "$CODEX/AGENTS.md"
+check "uninstall --codex: agent removed" test ! -e "$CODEX/agents/wf-reviewer.toml"
+# Foreign files are never removed.
+scenario
+CODEX="$HOME_DIR/.codex"
+mkdir -p "$CODEX/agents"
+echo "mine" > "$HOME_DIR/own.md"
+ln -s "$HOME_DIR/own.md" "$CODEX/AGENTS.md"
+echo 'name = "wf-reviewer"' > "$CODEX/agents/wf-reviewer.toml"
+uninstall_codex
+check_eq "foreign AGENTS.md link kept" "$HOME_DIR/own.md" "$(target "$CODEX/AGENTS.md")"
+check_eq "hand-written agent kept" 'name = "wf-reviewer"' "$(cat "$CODEX/agents/wf-reviewer.toml")"
+else
+    echo "install_test: python3 tomllib unavailable, skipped the --codex checks" >&2
+fi
 
 # The real clone must not have been touched.
 if [ "$HAD_SETTINGS" -eq 0 ]; then

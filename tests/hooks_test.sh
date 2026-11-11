@@ -224,6 +224,9 @@ for i in $(seq 1 40); do msg="$msg git is used here and there, with many other w
 allowed "git commit -m \"\$(cat <<'EOF'"$'\n'"$msg"$'\nEOF\n)"'
 
 # --- ordinary work stays allowed
+allowed 'git push origin a && git push origin b && git push --tags'
+allowed 'git push -u origin feat/a; git push origin feat/b; git push --tags; git push origin :feat/old'
+allowed "$(printf 'git push -f origin feat/x;%.0s ' 1 2 3 4 5 6 7 8 9 10)" "$REPO_F"
 allowed 'git log -n 5'
 allowed 'git log --oneline -n 5 && git status'
 allowed 'git push --dry-run origin feat/x'
@@ -291,9 +294,9 @@ allowed "$many"
 # --- crafted inputs finish well inside the hook timeout (a timeout does not block)
 if command -v jq >/dev/null 2>&1 && [[ "$(date +%s%N)" =~ ^[0-9]+$ ]]; then
     timed_blocked() { # timed_blocked <label> <command> [limit ms] [inner: no deadline wrapper]
-        local t0 t1 ms limit="${3:-2000}"
+        local t0 t1 ms limit="${3:-2000}" cwd="${5:-/tmp}"
         t0=$(date +%s%N)
-        ERR="$(printf '%s' "$2" | jq -Rs '{tool_name:"Bash",cwd:"/tmp",tool_input:{command:.}}' | env ${4:+WF_GUARD_INNER=1} "$BASH_BIN" "$GUARD" 2>&1 >/dev/null)"; RC=$?
+        ERR="$(printf '%s' "$2" | jq -Rs --arg d "$cwd" '{tool_name:"Bash",cwd:$d,tool_input:{command:.}}' | env ${4:+WF_GUARD_INNER=1} "$BASH_BIN" "$GUARD" 2>&1 >/dev/null)"; RC=$?
         t1=$(date +%s%N); ms=$(( (t1 - t0) / 1000000 ))
         if [ "$RC" -ne 2 ]; then fail "$1 should be blocked (rc=$RC)"
         elif [ "$ms" -ge "$limit" ]; then fail "$1 took ${ms} ms (limit $limit)"
@@ -317,6 +320,11 @@ if command -v jq >/dev/null 2>&1 && [[ "$(date +%s%N)" =~ ^[0-9]+$ ]]; then
     timed_blocked "750 KB of cd a" "$(rep 'cd a ' 150000); git commit --no-verify" 3000
     # hosts without timeout/gtimeout have no deadline: the caps alone must bound the work
     blocked too-large "git push origin $(rep 'x ' 300)"
+    # many pushes must not add up to a timeout: the git lookups of a whole command are counted
+    lines="$(yes 'git push -f' | head -n 450)"$'\n'
+    timed_blocked "450 bare force pushes then a push to main, no deadline" "${lines}git push --force origin main" 800 inner "$REPO_F"
+    timed_blocked "one segment of 400 git push -f words, no deadline" "$(rep 'git push -f ' 400); git push --force origin main" 800 inner "$REPO_F"
+    blocked too-large "${lines}git push --force origin main" "$REPO_F"
     timed_blocked "7000 refs in one push, no deadline" "git push -f origin $(rep 'x ' 7000)main" 3000 inner
     timed_blocked "256 refs ending in main, no deadline" "git push -f origin $(rep 'x ' 255)main" 3000 inner
     timed_blocked "git -C a chain at 128 KB, no deadline" "git $(rep '-C a ' 25000) commit --no-verify" 3000 inner

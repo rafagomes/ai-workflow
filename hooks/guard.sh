@@ -9,7 +9,8 @@
 #   pr-approve          runs `gh pr review --approve` (approving is the human's call)
 #   too-large           the command is over 128 KB, has over 500 git/gh segments, more
 #                       than 100000 words after its git/gh words, over 256 refs in a
-#                       push, or a cd or git -C path over 4 KB (too much to inspect)
+#                       push, over 64 git lookups, or a cd or git -C path over 4 KB (too
+#                       much to inspect)
 #   too-slow            the analysis did not finish in 5 s (a hook timeout does not block,
 #                       so the guard enforces its own deadline and fails closed)
 #
@@ -34,7 +35,7 @@
 #
 # The analysis runs in a child under `timeout` (`gtimeout` on macOS, else a perl
 # alarm); with none of them only the size caps bound the work (a push may name at
-# most 256 refs, and git lookups are cached per push). WF_GUARD_TIMEOUT overrides the 5 s.
+# most 256 refs, git lookups are cached per push, and a command may spend at most 64). WF_GUARD_TIMEOUT overrides the 5 s.
 #
 # Fails open: with neither jq nor python3, or JSON it cannot parse, the command is
 # allowed and a one-line warning goes to stderr, so a missing tool never bricks a
@@ -105,9 +106,18 @@ git_dir() { git -C "$WD" "$@" 2>/dev/null; }
 # Per check_push call caches, so a push costs a fixed number of git processes
 # however many refs it names: the current branch, and the remotes' default branches.
 CUR_INIT=0; CUR_VAL=""; TRUNK_INIT=0; TRUNK_EXTRA=""
+# Git processes spawned over the whole command are counted too (call this in the
+# parent shell, before the $(...) that spawns), so many pushes cannot add up to a
+# timeout on a host with no deadline binary.
+GIT_CALLS=0
+spend_git() {
+    GIT_CALLS=$((GIT_CALLS + 1))
+    [ $GIT_CALLS -le 64 ] || deny too-large "too many git lookups in one command to inspect; split it up"
+}
 cur_branch() {
     [ $CUR_INIT = 1 ] && return 0
     CUR_INIT=1
+    spend_git
     CUR_VAL=$(git_dir symbolic-ref --short HEAD)
 }
 
@@ -118,7 +128,10 @@ is_trunk() {
     [ -n "$b" ] || return 1
     if [ $TRUNK_INIT = 0 ]; then
         TRUNK_INIT=1
-        for rr in "$r" origin; do
+        set -- "$r"
+        [ "$r" = origin ] || set -- "$r" origin
+        for rr in "$@"; do
+            spend_git
             d=$(git_dir symbolic-ref --short "refs/remotes/$rr/HEAD") || continue
             TRUNK_EXTRA="$TRUNK_EXTRA ${d#"$rr"/}"
         done

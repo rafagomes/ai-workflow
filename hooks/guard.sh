@@ -70,6 +70,19 @@ tokenize() {
                 if (c == "\\") {
                     d = substr(s, i + 1, 1)
                     if (d == "\"" || d == "\\" || d == "$" || d == "`") { add(d); i++ } else add(c)
+                } else if (c == "$" && substr(s, i + 1, 1) == "(") {
+                    # $(...) inside double quotes: keep it, quotes and all, in this token
+                    depth = 0
+                    for (j = i + 1; j <= len; j++) {
+                        ch = substr(s, j, 1)
+                        if (ch == "(") depth++
+                        else if (ch == ")" && --depth == 0) break
+                    }
+                    if (j > len) j = len
+                    sub_s = substr(s, i, j - i + 1)
+                    gsub(/\n/, "\036", sub_s)
+                    tok = tok sub_s; has = 1
+                    i = j
                 } else if (c == "\"") q = ""; else add(c)
                 continue
             }

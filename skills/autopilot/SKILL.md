@@ -8,6 +8,8 @@ Run the delivery pipeline for: $ARGUMENTS
 
 In hosts that do not substitute `$ARGUMENTS` (e.g. Codex), it is the text the user wrote after the skill name.
 
+**Requires Claude Code.** This skill relies on worktree-isolated agents, `SendMessage` resume and background agents, which other hosts lack. In another host (e.g. Codex), stop and tell the user to run `/wf:feature --pr` per task (`$feature` in Codex) instead.
+
 ## What autopilot is
 
 You are the **orchestrator** of **develop → review → fix → merge** for every task in scope. You dispatch writer agents in worktrees and the `wf:reviewer` agent on each PR, triage verdicts, merge, update status, and loop. You do not implement, review, or read diffs yourself; you keep only compact results (`branch`, `PR`, `verdict`). Typing `/wf:autopilot` grants merge authority for this run only, and not for T2 PRs: those are parked for a human merge (**Risk tiers** in your global agent instructions (`~/.claude/CLAUDE.md` or `~/.codex/AGENTS.md`) defines the tiers).

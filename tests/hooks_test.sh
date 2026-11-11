@@ -1,0 +1,200 @@
+#!/usr/bin/env bash
+# Tests for hooks/guard.sh: feeds hook-input JSON on stdin and checks the exit
+# code (2 = blocked, 0 = allowed) and that stderr names the rule.
+#
+# Usage: bash tests/hooks_test.sh
+set -uo pipefail
+
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+GUARD="$REPO/hooks/guard.sh"
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+BASH_BIN="$(command -v bash)"
+
+PASS=0
+FAIL=0
+ok()   { PASS=$((PASS + 1)); }
+fail() { FAIL=$((FAIL + 1)); echo "FAIL: $1" >&2; }
+
+# A throwaway repo on branch main whose origin/HEAD points at "trunk".
+REPO_T="$TMP/repo"
+git init -q -b main "$REPO_T"
+git -C "$REPO_T" update-ref refs/remotes/origin/trunk HEAD 2>/dev/null
+git -C "$REPO_T" symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/trunk
+# A second repo on a feature branch with the same origin/HEAD.
+REPO_F="$TMP/feat"
+git init -q -b feat/x "$REPO_F"
+git -C "$REPO_F" symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/trunk
+# A repo on the default branch "trunk".
+REPO_D="$TMP/dflt"
+git init -q -b trunk "$REPO_D"
+git -C "$REPO_D" symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/trunk
+
+# payload <command> <cwd>: hook JSON, encoded with jq or python3.
+payload() {
+    if command -v jq >/dev/null 2>&1; then
+        jq -n --arg c "$1" --arg d "$2" '{tool_name:"Bash",cwd:$d,tool_input:{command:$c}}'
+    else
+        python3 -I -c 'import json,sys; print(json.dumps({"tool_name":"Bash","cwd":sys.argv[2],"tool_input":{"command":sys.argv[1]}}))' "$1" "$2"
+    fi
+}
+
+# run <command> <cwd> -> sets RC and ERR
+run() {
+    ERR="$(payload "$1" "$2" | "$BASH_BIN" "$GUARD" 2>&1 >/dev/null)"
+    RC=$?
+}
+# blocked <rule> <command> [cwd]
+blocked() {
+    run "$2" "${3:-$REPO_T}"
+    if [ "$RC" -ne 2 ]; then fail "should block ($1): $2 (rc=$RC)"
+    elif [[ "$ERR" != *"[$1]"* ]]; then fail "stderr should name rule $1: $2 (got: $ERR)"
+    else ok; fi
+}
+# allowed <command> [cwd]
+allowed() {
+    run "$1" "${2:-$REPO_T}"
+    if [ "$RC" -ne 0 ]; then fail "should allow: $1 (rc=$RC, $ERR)"; else ok; fi
+}
+
+# --- no-verify
+blocked no-verify 'git commit --no-verify -m x'
+blocked no-verify 'git commit -n -m x'
+blocked no-verify 'git commit -nm "msg"'
+blocked no-verify 'git commit -m "msg" -n'
+blocked no-verify 'git commit --amend --no-verify'
+blocked no-verify 'git -C /tmp/x commit --no-verify -m x'
+blocked no-verify 'git -c user.name=a commit -n'
+blocked no-verify 'git push --no-verify'
+blocked no-verify 'git push --no-verify origin feat/x'
+blocked no-verify 'GIT_AUTHOR_NAME=a git commit -n'
+allowed 'git commit -m "fix -n handling" -a'
+allowed 'git commit -m -n'
+allowed 'git commit -am "msg"'
+allowed 'git commit -m "a --no-verify b"'
+allowed 'git push -n'
+allowed 'git push --dry-run origin feat/x'
+allowed 'git log --no-verify-signatures'
+allowed 'git status -n'
+allowed 'git commit -- -n'
+
+# --- trunk force push
+blocked trunk-force-push 'git push --force origin main'
+blocked trunk-force-push 'git push -f origin main'
+blocked trunk-force-push 'git push origin main -f'
+blocked trunk-force-push 'git push --force-with-lease origin main'
+blocked trunk-force-push 'git push --force-with-lease=main:abc origin main'
+blocked trunk-force-push 'git push --force-if-includes origin master'
+blocked trunk-force-push 'git push origin +main'
+blocked trunk-force-push 'git push origin +HEAD:main'
+blocked trunk-force-push 'git push origin +refs/heads/master'
+blocked trunk-force-push 'git push -f origin feat/x:main'
+blocked trunk-force-push 'git push --force'                 # no refspec, current branch is main
+blocked trunk-force-push 'git push -f origin HEAD'          # HEAD resolves to main
+blocked trunk-force-push 'git push -fu origin main'
+blocked trunk-force-push 'git push -f origin trunk'         # repo default branch from origin/HEAD
+blocked trunk-force-push 'git push --force' "$REPO_D"       # on the default branch, no refspec
+blocked trunk-force-push 'git push --all --force'
+blocked trunk-force-push 'cd /tmp && git push -f origin main'
+blocked trunk-force-push 'git status; git push -f origin main'
+blocked trunk-force-push 'echo hi | git push -f origin main'
+blocked trunk-force-push 'true &&
+git push -f origin main'
+blocked trunk-force-push 'GIT_TRACE=1 git push -f origin main'
+blocked trunk-force-push 'bash -c "git push -f origin main"'
+blocked trunk-force-push 'git push -f origin main 2>&1'
+blocked trunk-force-push "cd $REPO_T && git push --force"
+blocked trunk-force-push "git -C $REPO_T push --force"
+allowed 'git push -f origin feat/x'
+allowed 'git push --force-with-lease origin feat/x'
+allowed 'git push origin +feat/x'
+allowed 'git push --force' "$REPO_F"                        # feature branch, no refspec
+allowed 'git push -f origin HEAD' "$REPO_F"
+allowed 'git push origin main'
+allowed 'git push -u origin feat/x'
+allowed 'git push --force-with-lease origin main-fix'
+allowed 'git push -f origin trunk-next'
+allowed "cd $REPO_F && git push --force"
+allowed 'git log main -f'
+allowed 'grep -- --force file'
+allowed 'echo "git push -f origin main"'
+allowed 'git commit -m "never git push --force origin main"'
+allowed "git push -f origin 'feat/x'"
+
+# --- trunk delete
+blocked trunk-delete 'git push origin --delete main'
+blocked trunk-delete 'git push --delete origin master'
+blocked trunk-delete 'git push origin -d main'
+blocked trunk-delete 'git push origin :main'
+blocked trunk-delete 'git push origin :refs/heads/master'
+blocked trunk-delete 'git push origin --delete trunk'
+allowed 'git push origin --delete feat/x'
+allowed 'git push origin :feat/x'
+allowed 'git push origin --delete main-old'
+
+# --- gh pr review --approve
+blocked pr-approve 'gh pr review 12 --approve'
+blocked pr-approve 'gh pr review --approve -b ok'
+blocked pr-approve 'gh pr review 12 -a'
+blocked pr-approve 'gh -R owner/repo pr review 12 --approve'
+blocked pr-approve 'gh pr review -R owner/repo 12 --approve=true'
+blocked pr-approve 'cd x && gh pr review --approve'
+blocked pr-approve 'sh -c "gh pr review 3 --approve"'
+allowed 'gh pr review 12 --comment -b "do not --approve yet"'
+allowed 'gh pr review 12 --request-changes -b "-a"'
+allowed 'gh pr view 12'
+allowed 'gh pr merge 12'
+allowed 'gh issue list --approve'
+
+# --- misc
+allowed 'ls -la'
+allowed ''
+allowed 'echo "unterminated'
+
+# --- non-Bash tool calls and bad input are not blocked
+RC=0; ERR="$(printf '%s' '{"tool_name":"Edit","tool_input":{"command":"git push -f origin main"}}' | "$BASH_BIN" "$GUARD" 2>&1)" || RC=$?
+if [ "$RC" -eq 0 ]; then ok; else fail "non-Bash tool should be allowed"; fi
+RC=0; ERR="$(printf '%s' 'not json' | "$BASH_BIN" "$GUARD" 2>&1)" || RC=$?
+if [ "$RC" -eq 0 ]; then ok; else fail "invalid JSON should fail open (rc=$RC)"; fi
+
+# --- escape hatch: WF_GUARD=off in the hook's environment allows everything
+RC=0; payload 'git push --force origin main' "$REPO_T" | WF_GUARD=off "$BASH_BIN" "$GUARD" >/dev/null 2>&1 || RC=$?
+if [ "$RC" -eq 0 ]; then ok; else fail "WF_GUARD=off should allow (rc=$RC)"; fi
+# set inline in the command it does nothing
+blocked trunk-force-push 'WF_GUARD=off git push --force origin main'
+# other values do not disable it
+RC=0; payload 'git push --force origin main' "$REPO_T" | WF_GUARD=on "$BASH_BIN" "$GUARD" >/dev/null 2>&1 || RC=$?
+if [ "$RC" -eq 2 ]; then ok; else fail "WF_GUARD=on should not disable the guard (rc=$RC)"; fi
+
+# --- missing tools: simulate by a PATH holding every tool except jq / python3
+mkbin() { # mkbin <dir> <excluded tool...>
+    local dir="$1" t p x skip; shift
+    mkdir -p "$dir"
+    for t in awk cat git dirname sed tr grep head mktemp rm env jq python3; do
+        skip=0
+        for x in "$@"; do [ "$x" = "$t" ] && skip=1; done
+        [ $skip = 1 ] && continue
+        p="$(command -v "$t" 2>/dev/null)" || continue
+        ln -sf "$p" "$dir/$t"
+    done
+}
+BAD="$(payload 'git push --force origin main' "$REPO_T")"
+if command -v python3 >/dev/null 2>&1; then
+    mkbin "$TMP/nojq" jq
+    RC=0; ERR="$(printf '%s' "$BAD" | PATH="$TMP/nojq" "$BASH_BIN" "$GUARD" 2>&1 >/dev/null)" || RC=$?
+    if [ "$RC" -eq 2 ] && [[ "$ERR" == *"[trunk-force-push]"* ]]; then ok; else fail "without jq the python3 fallback should block (rc=$RC, $ERR)"; fi
+fi
+mkbin "$TMP/nojqpy" jq python3
+RC=0; ERR="$(printf '%s' "$BAD" | PATH="$TMP/nojqpy" "$BASH_BIN" "$GUARD" 2>&1 >/dev/null)" || RC=$?
+if [ "$RC" -eq 0 ] && [[ "$ERR" == *"neither jq nor python3"* ]]; then ok; else fail "without jq and python3 the guard should fail open with a warning (rc=$RC, $ERR)"; fi
+
+# --- the hook manifest points at the guard
+if command -v jq >/dev/null 2>&1; then
+    cmd="$(jq -r '.hooks.PreToolUse[0].hooks[0].command' "$REPO/hooks/hooks.json")"
+    mt="$(jq -r '.hooks.PreToolUse[0].matcher' "$REPO/hooks/hooks.json")"
+    # shellcheck disable=SC2016 # the literal ${CLAUDE_PLUGIN_ROOT} is what we look for
+    if [ "$mt" = Bash ] && [[ "$cmd" == *'${CLAUDE_PLUGIN_ROOT}/hooks/guard.sh'* ]]; then ok; else fail "hooks.json should run guard.sh on Bash (got $mt, $cmd)"; fi
+fi
+
+echo "hooks_test: $PASS passed, $FAIL failed"
+[ "$FAIL" -eq 0 ]

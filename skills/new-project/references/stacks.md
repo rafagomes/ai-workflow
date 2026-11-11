@@ -1,6 +1,6 @@
 # Stack reference
 
-Per-stack choices for the Makefile, the pre-commit config, the CI workflow and CLAUDE.md. Use the row for the chosen stack; for a stack not listed, pick the community-standard test runner and linter and tell the user what you chose.
+Per-stack choices for the Makefile, the pre-commit config, the CI workflow and AGENTS.md. Use the row for the chosen stack; for a stack not listed, pick the community-standard test runner and linter and tell the user what you chose.
 
 | Stack | test | lint | typecheck | build | lint-changed |
 |-------|------|------|-----------|-------|--------------|

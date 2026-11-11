@@ -82,7 +82,7 @@ main  ────●────●────●────●────�
 
 ## The seven rules
 
-These live in the global `CLAUDE.md` (`dotfiles/CLAUDE.md` in this repo) → **Trunk-Based Workflow**. Every skill in this toolkit enforces them.
+These live in the global agent instructions (`dotfiles/CLAUDE.md` in this repo, read by Codex as `~/.codex/AGENTS.md`) → **Trunk-Based Workflow**. Every skill in this toolkit enforces them.
 
 1. **One trunk.** `main` only. No `develop`, no `release/*`. If you need to stabilise for a release, use a tag + a feature flag, not a branch.
 
@@ -107,7 +107,7 @@ Review depth scales with **blast radius** and **reversibility**, not with line c
 | Tier | What | Review |
 |------|------|--------|
 | **T0** | Typo, spelling or formatting in prose, a changelog entry, a version bump. Never text that instructs an agent. | Skipped |
-| **T1** | An ordinary change. | One fresh-context `wf:reviewer` pass |
+| **T1** | An ordinary change. | One fresh-context `wf:reviewer` (`wf-reviewer` in Codex) pass |
 | **T2** | Touches a security trigger (trust boundary, auth, crypto, input parsing, secrets, permissions, dependencies, anything that runs automatically), a data migration or schema change, CI/CD, deploy or infra config, a public API or contract, a shared core module, or anything hard to reverse. | Reviewer, plus `/security-review` where a security trigger applies, plus **a human merges** |
 
 Highest matching tier wins; when unsure, the higher one. The tier is declared in the spec or roadmap task (`**Risk:**`), re-derived from the diff by `/wf:feature` and `/wf:fix`, written into the PR body's `## Risk` section, and assessed independently by the reviewer (its `RISK:` line). The dispatcher takes the higher of the two and corrects the PR body; an understated tier is not a finding and costs no fix cycle.

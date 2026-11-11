@@ -27,7 +27,7 @@ Review depth scales with blast radius and reversibility, not with size. Every ch
 - **T0** — the diff is entirely what may skip the reviewer (see Review). Text that instructs an agent is never T0. Review skipped.
 - **T1** — an ordinary change. One `wf:reviewer` pass.
 - **T2** — touches any security trigger (the list in Workflow; the security gate is the security subset of T2), or a data migration or schema change, CI/CD, deploy or infra config, a public API or contract other code depends on, a shared core module with many callers, or anything hard to reverse. The reviewer, plus the `/security-review` gate when a security trigger applies, plus **a human merge**: a blanket merge authorization ("autonomous", "merge if it passes", `/wf:autopilot` without `--supervised`) does not cover a T2 PR unless I said so explicitly for T2 work in that task.
-- The tier is declared in the spec or task, derived from the diff by whoever writes the code, and assessed again by the reviewer. The diff wins over the declaration when it is higher.
+- The tier is declared in the spec or task, derived from the diff by whoever writes the code, and assessed again by the reviewer. The diff wins over the declaration when it is higher. A higher assessed tier is a correction the dispatcher makes to the PR body, not a review finding, a fix round or a reason to re-review.
 - **Merging is my call, not the review's.** After the review, report the findings and stop. Merge on your own only when I said so for that piece of work ("merge it", "merge if it passes", "autonomous", or `/wf:autopilot` without `--supervised`), and never a T2 PR unless I said so for T2 work (Risk tiers). That authorization covers only the task I gave it for and never carries to the next one.
 
 ## Git

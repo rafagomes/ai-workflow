@@ -228,7 +228,7 @@ Skills used to be symlinked into `~/.claude/skills/` and invoked by bare name (`
 
 <br/>
 
-`wf:reviewer` reviews a branch diff against its spec: spec compliance, correctness, security at boundaries, test quality, convention drift. It is read-only, runs the project's checks itself rather than trusting the writer's output, and returns `PASS` or `FIX_REQUIRED` with `HIGH` / `MED` / `LOW` findings and a `RISK` line, the tier (`T0`, `T1`, `T2`) it assesses from the diff; an understated declared tier is a `MED` finding, and for T2 it also checks failure modes, rollback and the callers of changed contracts. `/wf:pr` and `/wf:autopilot` dispatch it. It runs on Opus, as the orchestrating session should; the writers `/wf:autopilot` dispatches run on Sonnet, and `/wf:feature` run directly writes on the session's model.
+`wf:reviewer` reviews a branch diff against its spec: spec compliance, correctness, security at boundaries, test quality, convention drift. It is read-only, runs the project's checks itself rather than trusting the writer's output, and returns `PASS` or `FIX_REQUIRED` with `HIGH` / `MED` / `LOW` findings and a `RISK` line, the tier (`T0`, `T1`, `T2`) it assesses from the diff; the dispatcher takes the higher of the declared and assessed tier, and for T2 it also checks failure modes, rollback and the callers of changed contracts. `/wf:pr` and `/wf:autopilot` dispatch it. It runs on Opus, as the orchestrating session should; the writers `/wf:autopilot` dispatches run on Sonnet, and `/wf:feature` run directly writes on the session's model.
 
 </details>
 

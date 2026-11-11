@@ -110,7 +110,7 @@ Review depth scales with **blast radius** and **reversibility**, not with line c
 | **T1** | An ordinary change. | One fresh-context `wf:reviewer` pass |
 | **T2** | Touches a security trigger (trust boundary, auth, crypto, input parsing, secrets, permissions, dependencies, anything that runs automatically), a data migration or schema change, CI/CD, deploy or infra config, a public API or contract, a shared core module, or anything hard to reverse. | Reviewer, plus `/security-review` where a security trigger applies, plus **a human merges** |
 
-Highest matching tier wins; when unsure, the higher one. The tier is declared in the spec or roadmap task (`**Risk:**`), re-derived from the diff by `/wf:feature` and `/wf:fix`, written into the PR body's `## Risk` section, and assessed independently by the reviewer (its `RISK:` line). An understated tier is a `MED` finding.
+Highest matching tier wins; when unsure, the higher one. The tier is declared in the spec or roadmap task (`**Risk:**`), re-derived from the diff by `/wf:feature` and `/wf:fix`, written into the PR body's `## Risk` section, and assessed independently by the reviewer (its `RISK:` line). The dispatcher takes the higher of the two and corrects the PR body; an understated tier is not a finding and costs no fix cycle.
 
 **Why this shape.** Humans no longer read every line, so their attention is the scarce resource; spend it where a mistake is expensive or cannot be undone, and let the evidence (a cold-context reviewer, the project's checks, the security gate) carry the rest. A blanket merge authorization such as `/wf:autopilot` autonomous therefore stops short of T2: `/wf:autopilot` parks a passing T2 PR as `awaiting-human-merge` and carries on with independent work.
 

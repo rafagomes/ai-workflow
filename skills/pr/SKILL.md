@@ -105,7 +105,7 @@ $ARGUMENTS may contain:
    )
    ```
 
-   Take the `Verify` commands from the project's `CLAUDE.md`, `Makefile` or package scripts; pass `none` if there are none. It returns `VERDICT` (`PASS` or `FIX_REQUIRED`), `REVIEWED_AT` (the sha it read), `RISK` (the tier it assesses from the diff), `CHECKS`, `FINDINGS` (`HIGH` / `MED` / `LOW`) and `SUMMARY`.
+   Take the `Verify` commands from the project's `CLAUDE.md`, `Makefile` or package scripts; pass `none` if there are none. It returns `VERDICT` (`PASS` or `FIX_REQUIRED`), `REVIEWED_AT` (the sha it read), `RISK` (the tier it assesses from the diff; reported only there, never as a finding), `CHECKS`, `FINDINGS` (`HIGH` / `MED` / `LOW`) and `SUMMARY`.
 
 9. **Process the verdict and fix.** Record the verdict with its `REVIEWED_AT` sha as a PR comment (`gh pr comment <url> --body …`), never as `gh pr review --approve`. Keep the LOW findings of every round: they are not fixed and a re-review does not repeat them, so the final comment and report list all of them.
    - `PASS`, and no LOW finding in any round: `Review: PASS`; go to step 10.
@@ -121,7 +121,7 @@ $ARGUMENTS may contain:
     - `NEEDS_HUMAN`: leave it a draft and report the unresolved items.
     - `--no-review` and no security fix was made: nothing to flip; step 7 set the final state. If a security fix was made, the bullets above apply.
 
-11. **Report** the PR URL, its draft/ready state, its tier (the higher of the declared and the reviewer's `RISK`; update the body's `## Risk` section if the reviewer raised it), and the review outcome (`PASS`, `PASS_WITH_NITS` with the nits, or `NEEDS_HUMAN` with the unresolved items). If the reviewer's `CHECKS` says a check left the tree dirty, say so, or the next `/wf:pr` run stops on a dirty tree unexplained. Then add this reminder without running it (the PR isn't merged yet):
+11. **Report** the PR URL, its draft/ready state, its tier (the higher of the declared and the reviewer's `RISK`; if the reviewer's is higher, update the body's `## Risk` section yourself with `gh pr edit`; that is not a fix cycle and needs no re-review), and the review outcome (`PASS`, `PASS_WITH_NITS` with the nits, or `NEEDS_HUMAN` with the unresolved items). If the reviewer's `CHECKS` says a check left the tree dirty, say so, or the next `/wf:pr` run stops on a dirty tree unexplained. Then add this reminder without running it (the PR isn't merged yet):
 
     For a T2 PR, state **"T2: a human merges"**. This skill never merges; the line tells the user the PR is not covered by a blanket merge authorization.
 

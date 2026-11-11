@@ -28,7 +28,7 @@ Name the branch from the spec's `## Trunk Metadata` — for a slice, from its ro
 - `<slug>` is the spec's file name with everything up to and including the first `_` removed, and without `.md`: `docs/specs/003_jira-sync.md` → `jira-sync` (and `003.A_jira-sync.md` → `jira-sync`). For a slice, join the parent directory's slug and the slice's, so two features with a same-named slice cannot collide: `docs/specs/003_jira-sync/002_webhook.md` → `jira-sync-webhook`. `/wf:autopilot` derives the same name to find a task's PR, so do not improvise one.
 - `<type>` is the spec's `**Type:**` (`feat`, `fix`, `refactor`, `chore`, `test`, `docs`, `perf`, `build`, `ci`, `security`). If `Type` is missing, warn and use `feat`.
 
-Worktree conventions are in your global `CLAUDE.md` (Trunk-Based Workflow).
+Worktree conventions are in your global agent instructions (`~/.claude/CLAUDE.md` or `~/.codex/AGENTS.md`) (Trunk-Based Workflow).
 
 **UI work.** If the spec names a design reference, or `docs/design/DESIGN_SYSTEM.md` exists, read it before writing UI code and follow its Implementation Fidelity Protocol; if the task is UI and there is no design source, say so in the report rather than inventing one.
 
@@ -44,11 +44,11 @@ Worktree conventions are in your global `CLAUDE.md` (Trunk-Based Workflow).
 
 4. **Implement with tests, layer by layer.** Unit, then integration, then e2e. Run each layer and fix failures before moving on. Vary the test data in whatever the code depends on (sizes, lengths, order, scale); uniform fixtures hide bugs. Before the quality checks, remove or break the behaviour each new test covers and see the test fail; rewrite a test that still passes.
 
-5. **Quality checks.** Run the project's lint, typecheck and tests (commands are in the project's `CLAUDE.md` or Makefile); report each in one line (command, result) and paste output only for a failure.
+5. **Quality checks.** Run the project's lint, typecheck and tests (commands are in the project's agent instructions (`CLAUDE.md` or `AGENTS.md`) or Makefile); report each in one line (command, result) and paste output only for a failure.
 
    **Feature flag.** If the spec's `**Flag:**` names a flag other than `none` (or its `## Feature Flag` section does), verify the new behavior is gated by it. If the flag does not exist yet, create it, default off, as part of this slice.
 
-   **Risk tier.** Take the spec's `**Risk:**` (tiers are defined in **Risk tiers** in your global `CLAUDE.md`) and check it against the diff: a diff that hits a T2 criterion makes the change T2 whatever the spec says, and the diff wins when it is higher. With no spec tier, derive it from the diff. A T2 change is flagged in the report so the user knows it needs a human merge.
+   **Risk tier.** Take the spec's `**Risk:**` (tiers are defined in **Risk tiers** in your global agent instructions (`~/.claude/CLAUDE.md` or `~/.codex/AGENTS.md`)) and check it against the diff: a diff that hits a T2 criterion makes the change T2 whatever the spec says, and the diff wins when it is higher. With no spec tier, derive it from the diff. A T2 change is flagged in the report so the user knows it needs a human merge.
 
    **Size gate.** Measure the hand-written source this change adds:
    `git diff --numstat $(git merge-base origin/<base> HEAD) -- . ':(exclude,glob)**/tests/**' ':(exclude,glob)**/__tests__/**' ':(exclude,glob)**/*_test.*' ':(exclude,glob)**/*.test.*' ':(exclude,glob)**/*.spec.*' ':(exclude,glob)**/*_spec.*' ':(exclude,glob)**/test_*' ':(exclude,glob)**/*.lock' ':(exclude,glob)**/*-lock.*'`

@@ -25,7 +25,7 @@ Before writing any file, tell the user the path and which roadmap phase it mirro
 
 Read what already exists before asking anything:
 
-1. **Docs:** `docs/PRD.md` or `docs/prd/`, `docs/ARCHITECTURE.md` (and `docs/TECHNICAL_DESIGN_DOCUMENT.md` in older projects), `docs/THREAT_MODEL.md`, `README.md`, the project's `CLAUDE.md`.
+1. **Docs:** `docs/PRD.md` or `docs/prd/`, `docs/ARCHITECTURE.md` (and `docs/TECHNICAL_DESIGN_DOCUMENT.md` in older projects), `docs/THREAT_MODEL.md`, `README.md`, the project's agent instructions (`CLAUDE.md` or `AGENTS.md`).
 2. **Roadmap and specs:** list `docs/roadmap/` and `docs/specs/` to pick `NNN`. If the input is a roadmap task, take its Files, Flag, Depends on, Complexity, Verification and `Design reference` from the task.
 3. **An existing spec for this feature:** if the user is revising, don't start from scratch.
 4. **Inherited project with no docs:** read the README, the directory structure, key entry points, `git log --oneline -20` and the manifest (`package.json`, `Cargo.toml`, `pyproject.toml`, ...). Summarize what you understood before the interview.
@@ -38,7 +38,7 @@ Reference existing architecture, TDD and security docs; don't repeat them.
 
 ## Slice (trunk-based)
 
-Estimate size in **added source lines only**; tests never count toward the budget. A PR is one concern, and roughly 1,000 added source lines or ~40 changed source files is the point to check that it still is (the size guide in your global `CLAUDE.md`).
+Estimate size in **added source lines only**; tests never count toward the budget. A PR is one concern, and roughly 1,000 added source lines or ~40 changed source files is the point to check that it still is (the size guide in your global agent instructions (`~/.claude/CLAUDE.md` or `~/.codex/AGENTS.md`)).
 
 - **Up to ~1,000 lines, or larger but one concern that is meaningless in parts:** one spec, one PR, a single file. For the larger case, say in the spec why it stays together.
 - **Over ~1,000 lines and more than one concern:** slice into independently mergeable vertical slices, each one concern, under `docs/specs/NNN_<slug>/`. Never cut one concern into slices that only make sense together.
@@ -54,7 +54,7 @@ Estimate size in **added source lines only**; tests never count toward the budge
 - **Flag:** exact flag name (default off), or `none` if it ships user-ready. This is the single source for the flag.
 - **Depends on:** other slice numbers or specs that must merge first; `—` if independent.
 - **Complexity:** `low` is under ~300 added source lines, `med` under ~1,000, `high` is more than that or more than one concern. A `high` slice is a smell to re-slice; if you keep it, add a `## Slicing` section saying why one PR is still defensible.
-- **Risk:** `T0`, `T1` or `T2` with a one-line why, e.g. `T2 — changes the session token format`. Pick it from **Risk tiers** in your global `CLAUDE.md`, the one definition (highest match wins; when unsure take the higher). Size does not set it. `/wf:feature` re-checks it against the diff.
+- **Risk:** `T0`, `T1` or `T2` with a one-line why, e.g. `T2 — changes the session token format`. Pick it from **Risk tiers** in your global agent instructions (`~/.claude/CLAUDE.md` or `~/.codex/AGENTS.md`), the one definition (highest match wins; when unsure take the higher). Size does not set it. `/wf:feature` re-checks it against the diff.
 - **Issue:** `—` until `/wf:issues` fills it with `#<number>`.
 
 **Sliced index** (`docs/specs/NNN_<slug>/README.md`). The Slices table is the source of truth for `/wf:issues`:

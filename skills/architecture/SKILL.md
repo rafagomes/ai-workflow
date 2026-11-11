@@ -13,7 +13,7 @@ With a focus area (e.g. `testing`), update only that part and leave the rest.
 
 Read what already exists before asking anything:
 
-1. **Existing docs** — `docs/ARCHITECTURE.md` (if revising, don't start from scratch), `docs/PRD.md` or `docs/prd/`, `docs/THREAT_MODEL.md`, `README.md`, the project's `CLAUDE.md`, any whitepaper or design doc.
+1. **Existing docs** — `docs/ARCHITECTURE.md` (if revising, don't start from scratch), `docs/PRD.md` or `docs/prd/`, `docs/THREAT_MODEL.md`, `README.md`, the project's agent instructions (`CLAUDE.md` or `AGENTS.md`), any whitepaper or design doc.
 2. **Legacy split** — if `docs/TECHNICAL_DESIGN_DOCUMENT.md` exists, the project predates the merged document. Read it, carry its content into the Engineering part, and ask whether to delete it once the merged file is written.
 3. **The codebase:**
    - Directory structure and key entry points (main files, route definitions, config).

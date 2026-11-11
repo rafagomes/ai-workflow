@@ -23,7 +23,7 @@ Before the first Paper call, read `references/paper-mcp.md` (load Paper's guide,
 
 Read what exists, using the project's own doc locations if they are not under `docs/` (in a monorepo, write `DESIGN_SYSTEM.md` beside the docs you find):
 
-1. `docs/PRD.md` or `docs/prd/` (what screens, flows, user types), `docs/ARCHITECTURE.md` (system shape, data models), `docs/THREAT_MODEL.md` (security-sensitive screens), the README and the project's `CLAUDE.md`.
+1. `docs/PRD.md` or `docs/prd/` (what screens, flows, user types), `docs/ARCHITECTURE.md` (system shape, data models), `docs/THREAT_MODEL.md` (security-sensitive screens), the README and the project's agent instructions (`CLAUDE.md` or `AGENTS.md`).
 2. Every file in `docs/specs/`: screens, forms, data displays, states and edge cases.
 3. `docs/design/DESIGN_SYSTEM.md` and `docs/design/assets/`. If the system exists, use it; do not recreate it.
 4. The Paper canvas: `get_basic_info` and `get_tree_summary`, plus `find_nodes` to check names before creating anything.

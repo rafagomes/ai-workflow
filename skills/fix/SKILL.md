@@ -13,21 +13,21 @@ Fix the bug described in $ARGUMENTS.
 
 ## Branch
 
-Run `git fetch origin`, and if the tree is dirty with unrelated changes, say so before starting. Resolve the trunk branch as `<base>`: `gh repo view --json defaultBranchRef -q .defaultBranchRef.name`, falling back to `git symbolic-ref --short refs/remotes/origin/HEAD` with `origin/` stripped. Work on a short-lived branch cut from `origin/<base>`, not from another feature branch: `fix/<N>-<slug>` when there is an issue, `fix/<slug>` otherwise. Worktree conventions are in your global `CLAUDE.md` (Trunk-Based Workflow).
+Run `git fetch origin`, and if the tree is dirty with unrelated changes, say so before starting. Resolve the trunk branch as `<base>`: `gh repo view --json defaultBranchRef -q .defaultBranchRef.name`, falling back to `git symbolic-ref --short refs/remotes/origin/HEAD` with `origin/` stripped. Work on a short-lived branch cut from `origin/<base>`, not from another feature branch: `fix/<N>-<slug>` when there is an issue, `fix/<slug>` otherwise. Worktree conventions are in your global agent instructions (`~/.claude/CLAUDE.md` or `~/.codex/AGENTS.md`) (Trunk-Based Workflow).
 
 ## Steps
 
-1. **Reproduce and locate.** Check the project's `CLAUDE.md`, `README.md` and `docs/` for context (for a UI bug, `docs/design/DESIGN_SYSTEM.md` too, if it exists). Find the code path, then reproduce the failure by running the failing test or the reported steps, telling the user what you are doing. Check `git log` on the affected files for the change that may have introduced it. If you cannot reproduce it, say so, list what you tried and ask for the missing input; do not patch on a guess.
+1. **Reproduce and locate.** Check the project's agent instructions (`CLAUDE.md` or `AGENTS.md`), `README.md` and `docs/` for context (for a UI bug, `docs/design/DESIGN_SYSTEM.md` too, if it exists). Find the code path, then reproduce the failure by running the failing test or the reported steps, telling the user what you are doing. Check `git log` on the affected files for the change that may have introduced it. If you cannot reproduce it, say so, list what you tried and ask for the missing input; do not patch on a guess.
 
 2. **Diagnose the root cause.** Trace the data flow from input to the failure point. Explain the cause, not the symptom, in 1-2 sentences before changing code.
 
 3. **Pick the test layer** as in `/wf:feature` step 2 (`docs/ARCHITECTURE.md` Testing Strategy, else inferred from the project): unit for pure logic, integration at a boundary (API, database, service interaction), e2e only if a critical user flow broke and had no e2e coverage.
 
-4. **Fix.** Write the regression test first and watch it fail for the right reason. Then make the minimal change that fixes the root cause, without refactoring surrounding code, and confirm the test passes. If the bug is at a security trigger (see **Security triggers** in your global `CLAUDE.md`), note that it needs `/security-review` before the PR.
+4. **Fix.** Write the regression test first and watch it fail for the right reason. Then make the minimal change that fixes the root cause, without refactoring surrounding code, and confirm the test passes. If the bug is at a security trigger (see **Security triggers** in your global agent instructions (`~/.claude/CLAUDE.md` or `~/.codex/AGENTS.md`)), note that it needs `/security-review` before the PR.
 
 5. **Quality checks.** Run the project's lint, typecheck and the full test suite (so a regression elsewhere shows up); report each in one line (command, result) and paste output only for a failure.
 
-   **Risk tier.** Derive the tier from the diff (see **Risk tiers** in your global `CLAUDE.md`). A T2 fix needs a human merge however small; say so in the report.
+   **Risk tier.** Derive the tier from the diff (see **Risk tiers** in your global agent instructions (`~/.claude/CLAUDE.md` or `~/.codex/AGENTS.md`)). A T2 fix needs a human merge however small; say so in the report.
 
    **Size gate.** Measure the hand-written source this change adds:
    Measure as in `/wf:feature` step 5 (Size gate): added source lines and changed source files, tests, generated files, lockfiles and pure moves excluded. Past roughly 1,000 lines or ~40 files, decide whether it is still one concern. One concern: carry on, and say in the report how large it is and why it stays together. More than one (a fix that grows into a refactor is two slices): stop and propose a split via AskUserQuestion, and do not leave it in the working tree without the user's override.

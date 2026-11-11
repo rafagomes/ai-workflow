@@ -15,7 +15,7 @@ Stage and commit the current working tree.
 
 1. **Survey the working tree** — run in parallel: `git status`, `git diff --stat`, `git log --oneline -10` (the log shows the repo's commit style; match it).
    - Clean tree (nothing staged, unstaged, or untracked and relevant): stop and say there's nothing to commit.
-   - On the trunk branch (`main`/`master`, or whatever `git symbolic-ref --short refs/remotes/origin/HEAD` names) or a detached HEAD: trunk is never committed to directly, so propose a `<type>/<slug>` branch per the trunk convention in your global `CLAUDE.md` and create it once approved.
+   - On the trunk branch (`main`/`master`, or whatever `git symbolic-ref --short refs/remotes/origin/HEAD` names) or a detached HEAD: trunk is never committed to directly, so propose a `<type>/<slug>` branch per the trunk convention in your global agent instructions (`~/.claude/CLAUDE.md` or `~/.codex/AGENTS.md`) and create it once approved.
    - Changes the user already staged are a hint for grouping, not a mandate.
 
 2. **Read the diffs** of any file whose change isn't obvious from its path (`git diff <file>`, or `git diff --cached <file>` for staged changes). A file named `auth.go` could hold a typo fix or a rewrite.

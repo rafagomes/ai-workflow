@@ -12,7 +12,7 @@ Before interviewing, understand the system's security surface:
 1. **Check for existing docs:**
    - Read `docs/THREAT_MODEL.md` — if revising, don't start from scratch
    - Read `docs/ARCHITECTURE.md` for system structure and trust boundaries
-   - Read the project's `CLAUDE.md` and `README.md`
+   - Read the project's agent instructions (`CLAUDE.md` or `AGENTS.md`) and `README.md`
 
 2. **Survey the codebase** for auth, input handling, data access (raw SQL vs parameterized), secrets, exposed endpoints and service exposure (`docker-compose.yml`, deployment config).
 3. Summarize what you found — "Here's what I see from a security perspective: ..."

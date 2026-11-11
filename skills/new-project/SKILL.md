@@ -13,7 +13,7 @@ Generate only what you can name a working command for. If a tool for the stack i
 ### 1. Check the target and the stack
 
 - The project goes in `$PWD/<project-name>/`. If that directory exists and is not empty, stop and ask the user to confirm before touching it. Even when confirmed, never overwrite an existing file: skip it and list what you skipped.
-- If no stack was given, ask one AskUserQuestion for stack and project type (API, CLI, library, web app). Take the test runner, linter and formatter from `references/stacks.md`. If you cannot ask, stop with a one-line error instead of guessing a stack.
+- If no stack was given, ask one AskUserQuestion for stack and project type (API, CLI, library, web app). Where AskUserQuestion is unavailable (e.g. in Codex), ask the same question in chat as a short numbered list and wait for the answer. Take the test runner, linter and formatter from `references/stacks.md`. If you cannot ask, stop with a one-line error instead of guessing a stack.
 
 ### 2. Initialize
 

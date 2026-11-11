@@ -32,7 +32,7 @@ Read what already exists before asking anything:
 
 ## Interview
 
-Read the affected code and draft the spec first. Ask only what is still open, at most 4 questions per AskUserQuestion call; if the user cannot be asked (a headless run), proceed from what exists and list each assumption under an `Open questions` heading in the spec. The spec must be precise enough to implement without further clarification, so cover: what changes, edge cases, security (auth, input validation, data exposure), concrete verification cases with inputs and expected outputs, and dependencies. Skip what does not apply: an API contract and data model mean nothing for a CLI, UI-only or docs change.
+Read the affected code and draft the spec first. Ask only what is still open, at most 4 questions per AskUserQuestion call. Where AskUserQuestion is unavailable (e.g. in Codex), ask the same question in chat as a short numbered list and wait for the answer. If the user cannot be asked at all (a headless run), proceed from what exists and list each assumption under an `Open questions` heading in the spec. The spec must be precise enough to implement without further clarification, so cover: what changes, edge cases, security (auth, input validation, data exposure), concrete verification cases with inputs and expected outputs, and dependencies. Skip what does not apply: an API contract and data model mean nothing for a CLI, UI-only or docs change.
 
 Reference existing architecture, TDD and security docs; don't repeat them.
 

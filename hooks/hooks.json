@@ -1,0 +1,17 @@
+{
+  "description": "wf guardrails: block --no-verify, force-pushing the trunk, deleting the trunk, and gh pr review --approve",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/guard.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

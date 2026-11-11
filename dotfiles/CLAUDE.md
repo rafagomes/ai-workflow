@@ -33,6 +33,7 @@ Review depth scales with blast radius and reversibility, not with size. Every ch
 ## Git
 - Before a commit or PR, confirm you are in the intended repository and on the intended branch.
 - Sync before starting: `git fetch` at the start of a session and before each new task, and check the branch against its upstream — I work from parallel sessions and machines. If histories have diverged, reconcile before building; published history wins, and never force-push over commits you have not seen.
+- The `wf` plugin's hooks enforce the no-`--no-verify`, no-force-push-or-delete-of-the-trunk and no-`gh pr review --approve` rules on Bash commands. They are a heuristic guardrail, not a security boundary; `WF_GUARD=off` in the settings `env` disables them.
 
 ## Trunk-Based Workflow
 - `main` is trunk and always deployable. No long-lived `develop` or `release/*` branches.

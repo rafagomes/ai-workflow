@@ -9,6 +9,7 @@ This repo is two things: the `wf` Claude Code plugin, and the personal config fi
 - `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` — the plugin manifest and the marketplace that serves it
 - `skills/<name>/SKILL.md` — the plugin's skills, invoked as `/wf:<name>`
 - `agents/reviewer.md` — the plugin's reviewer agent (`wf:reviewer`)
+- `hooks/hooks.json`, `hooks/guard.sh` — the plugin's guardrail hook (PreToolUse on Bash); tested by `tests/hooks_test.sh`
 - `dotfiles/CLAUDE.md` — global defaults, symlinked to `~/.claude/CLAUDE.md` by `install.sh`
 - `settings.json` — your untracked settings, symlinked into `~/.claude/` by `install.sh`
 - `CLAUDE.md` (this file) — project-specific rules, loaded only when `cwd` is this repo
@@ -60,6 +61,7 @@ If you're not sure whether a change is doc-relevant, it is. Default to updating 
 
 - After editing a skill or the agent: start a session with the working tree loaded as the plugin — `claude --plugin-dir .` — and invoke it (e.g., `/wf:autopilot --dry-run`).
 - After changing `/wf:commit`, `/wf:feature`, `/wf:fix` or `/wf:pr` (or the structure of any skill with a case in `evals/`): run that skill's evals from a plain terminal (inside an agent session the eval child may have no usable `git`, so git-based cases fail; see `docs/SKILL_QUALITY.md`), e.g. `claude plugin eval . --tag fix --scaffold --no-publish --allow-tools Bash Write Edit --max-cost-usd 5`. Evals call a model on your own account, so they are local and opt-in and never run in CI; see `docs/SKILL_QUALITY.md` for when to run them, how to read the result and how to add a case.
+- After editing `hooks/`: `bash tests/hooks_test.sh`, and break the rule you changed to see a test fail.
 - After editing a manifest, or adding or renaming a skill: `claude plugin validate .`.
 - After editing `install.sh` or `uninstall.sh`: run them against a throwaway `CLAUDE_DIR` and verify the symlinks land where expected.
 - Before every push, run the CI checks locally (no secrets or network needed except for `validate`'s CLI):

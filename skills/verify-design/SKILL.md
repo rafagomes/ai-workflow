@@ -1,6 +1,6 @@
 ---
 name: verify-design
-description: "Compare the running UI with its Paper artboards in a real browser (Playwright, desktop and mobile) and fix the mismatches in the code. Use when the user says 'verify the design', 'does this match Paper', 'check design fidelity', 'the UI drifted from the mock', or after building a page that has a Paper artboard. Edits source files; needs the Paper MCP, Playwright and a runnable dev server."
+description: "Compare the running UI with its Paper artboards in a real browser (Playwright, desktop and mobile) and fix the mismatches in the code. Use when the user says 'verify the design', 'does this match Paper', 'check design fidelity', 'the UI drifted from the mock', or after building a page that has a Paper artboard. Edits source files; needs the Paper MCP, Playwright and a runnable dev server. Not for creating designs (use /wf:design) or for a review that must not change code."
 argument-hint: "[page | component | path] [notes]"
 ---
 Verify the current UI against its Paper design references for: $ARGUMENTS

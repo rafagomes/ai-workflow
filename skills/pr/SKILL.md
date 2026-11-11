@@ -55,14 +55,13 @@ $ARGUMENTS may contain:
 
    ## Risk
    <`T1 — <one-line why>`; tiers are defined in your global `CLAUDE.md` → **Risk tiers**.
-   Required unless --no-review skipped the review as T0 (then `T0 — <reason>`)>
+   Always required; `T0 — <reason>` when --no-review skipped the review>
 
    ## Review
    <only with --no-review: `Review: skipped — <reason>`>
 
    ## Security checklist
-   <only if the diff touches auth, sessions, crypto, password handling, input validation,
-   SQL/command construction, file uploads, secrets, env vars, or external API calls>
+   <only if the diff touches a security trigger (global `CLAUDE.md` → **Security triggers**)>
    - [ ] Inputs validated at system boundary
    - [ ] No secrets or credentials in code/logs
    - [ ] Auth/authz checks unchanged or reviewed
@@ -123,8 +122,8 @@ $ARGUMENTS may contain:
 
 11. **Report** the PR URL, its draft/ready state, its tier (the higher of the declared and the reviewer's `RISK`; if the reviewer's is higher, update the body's `## Risk` section yourself with `gh pr edit`; that is not a fix cycle and needs no re-review), and the review outcome (`PASS`, `PASS_WITH_NITS` with the nits, or `NEEDS_HUMAN` with the unresolved items). If the reviewer's `CHECKS` says a check left the tree dirty, say so, or the next `/wf:pr` run stops on a dirty tree unexplained. Then add this reminder without running it (the PR isn't merged yet):
 
-    For a T2 PR, state **"T2: a human merges"**. This skill never merges; the line tells the user the PR is not covered by a blanket merge authorization.
-
     *"After merge: `git checkout <base> && git pull --ff-only && git push origin --delete <branch>; git branch -D <branch>` (only once the PR shows MERGED; the remote delete is a no-op if GitHub already deleted it), plus `git worktree remove <path>` if you used a worktree. Never reuse a merged branch."*
+
+    For a T2 PR, also state **"T2: a human merges"**. This skill never merges; the line tells the user the PR is not covered by a blanket merge authorization.
 
 The skill ends here.

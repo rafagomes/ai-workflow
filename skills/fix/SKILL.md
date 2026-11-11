@@ -27,7 +27,7 @@ Run `git fetch origin`, and if the tree is dirty with unrelated changes, say so 
 
 5. **Quality checks.** Run the project's lint, typecheck and the full test suite (so a regression elsewhere shows up); report each in one line (command, result) and paste output only for a failure.
 
-   **Risk tier.** Derive the tier from the diff (see **Risk tiers** in your global `CLAUDE.md`). A fix at a security trigger or in a shared core module is T2 however small, and needs a human merge; say so in the report.
+   **Risk tier.** Derive the tier from the diff (see **Risk tiers** in your global `CLAUDE.md`). A T2 fix needs a human merge however small; say so in the report.
 
    **Size gate.** Measure the hand-written source this change adds:
    Measure as in `/wf:feature` step 5 (Size gate): added source lines and changed source files, tests, generated files, lockfiles and pure moves excluded. Past roughly 1,000 lines or ~40 files, decide whether it is still one concern. One concern: carry on, and say in the report how large it is and why it stays together. More than one (a fix that grows into a refactor is two slices): stop and propose a split via AskUserQuestion, and do not leave it in the working tree without the user's override.

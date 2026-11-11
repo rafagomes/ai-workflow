@@ -51,9 +51,9 @@ That is the whole loop. Everything else in this README is detail.
 | Piece | What it means |
 |---|---|
 | **15 skills** | One per step, from the first product interview to the merged pull request. All namespaced `/wf:<name>`. |
-| **A reviewer agent** | Read-only and fresh-context. It runs the project's checks itself and returns `PASS` or `FIX_REQUIRED`. Every behaviour-changing PR goes through it before it is marked ready. |
-| **Trunk-based by construction** | Short-lived branches, one PR per concern; ~500 added source lines is the prompt to check it is still one. [Why and how →](docs/TRUNK_BASED_WORKFLOW.md) |
-| **Writer / reviewer separation** | The session that wrote the code never reviews it, and merging stays your decision unless you run `/wf:autopilot`. |
+| **A reviewer agent** | Read-only and fresh-context. It runs the project's checks itself and returns `PASS` or `FIX_REQUIRED`, plus the risk tier it assesses from the diff. Every behaviour-changing PR goes through it before it is marked ready. |
+| **Trunk-based by construction** | Short-lived branches, one PR per concern; review depth follows risk (T0, T1, T2), not size. Past ~1,000 added source lines or ~40 files is the prompt to check it is still one concern. [Why and how →](docs/TRUNK_BASED_WORKFLOW.md) |
+| **Writer / reviewer separation** | The session that wrote the code never reviews it, and merging stays your decision unless you run `/wf:autopilot`, and even then a T2 (high-risk) PR waits for you. |
 | **Optional global conventions** | A `CLAUDE.md` applied to every project: verification, commit style, the trunk rules, review before merge. |
 
 ## How it works
@@ -94,9 +94,9 @@ flowchart LR
 `/wf:pr` does not hand you an unreviewed pull request:
 
 1. Shows you the title and body, then pushes the branch and opens the PR as a **draft**.
-2. Dispatches the `wf:reviewer` agent, which has never seen the code. It checks spec compliance, correctness, security at boundaries, test quality and convention drift, and runs the project's checks itself.
+2. Dispatches the `wf:reviewer` agent, which has never seen the code. It checks spec compliance, correctness, security at boundaries, test quality and convention drift, runs the project's checks itself, and assesses the PR's risk tier (T0, T1 or T2; the PR body's `## Risk` section declares it).
 3. Fixes `HIGH` and `MED` findings, and only those, then asks for a re-review — at most two cycles. The re-review is narrow: it reads the fix commits; what they broke blocks as usual, and a defect that was already there blocks only when `HIGH`.
-4. Marks the PR **ready** on `PASS`; `LOW` nits are listed, never fixed in a fix cycle, and never block. A security-sensitive diff gets the built-in `/security-review` first, and its `HIGH` and `MED` findings block the same way, within the same two cycles. If the loop does not converge, the PR stays a draft and you get the findings.
+4. Marks the PR **ready** on `PASS`; `LOW` nits are listed, never fixed in a fix cycle, and never block. A security-sensitive diff gets the built-in `/security-review` first, and its `HIGH` and `MED` findings block the same way, within the same two cycles. If the loop does not converge, the PR stays a draft and you get the findings. A T2 PR (security triggers, migrations, CI/CD and infra, public contracts, shared core modules, anything hard to reverse) is reported as "T2: a human merges": no blanket merge authorization covers it. [Risk-tiered review →](docs/TRUNK_BASED_WORKFLOW.md#risk-tiered-review)
 
 ## Skills
 
@@ -109,7 +109,7 @@ flowchart LR
 | `/wf:threat-model` | `docs/THREAT_MODEL.md` — a STRIDE-style threat model |
 | `/wf:adr [title]` | `docs/adr/NNNN-<slug>.md` — an architecture decision record |
 | `/wf:roadmap` | `docs/roadmap/NNN_<phase>.md` — a phased roadmap, one file per phase. Asks whether to file GitHub milestones and issues and, once the roadmap is on the trunk branch, hands off to `/wf:issues` |
-| `/wf:spec <feature>` | `docs/specs/NNN_<feature>.md` — a spec with verification criteria, sliced when it is more than one concern (the check triggers at ~500 source lines) |
+| `/wf:spec <feature>` | `docs/specs/NNN_<feature>.md` — a spec with verification criteria, sliced when it is more than one concern (the check triggers at ~1,000 source lines or ~40 files); each slice carries a risk tier |
 | `/wf:issues <roadmap or spec>` | GitHub milestones and issues — one milestone per phase, one issue per task or slice |
 
 ### Design
@@ -125,7 +125,7 @@ flowchart LR
 |---|---|
 | `/wf:feature <spec>` | Implements one spec or slice with tests, runs the checks, and stops at the working tree. `--commit` also commits; `--pr` also opens the PR and runs its review |
 | `/wf:fix <description or issue>` | Root-cause diagnosis, minimal fix, regression test |
-| `/wf:autopilot [roadmap or phase file]` | Delivers a roadmap, a phase (`--phase <NNN>`) or a GitHub milestone (`--milestone <N>`): each task is developed in a worktree, reviewed in a fresh context, fixed, and **merged to the trunk branch**. `--supervised` leaves the PRs open for you; `--dry-run` prints the plan. Schedules a one-shot resume after a usage-limit reset. Runs only when you type it |
+| `/wf:autopilot [roadmap or phase file]` | Delivers a roadmap, a phase (`--phase <NNN>`) or a GitHub milestone (`--milestone <N>`): each task is developed in a worktree, reviewed in a fresh context, fixed, and **merged to the trunk branch**. T2 (high-risk) PRs are parked for your merge; `--supervised` leaves every PR open for you; `--dry-run` prints the plan. Schedules a one-shot resume after a usage-limit reset. Runs only when you type it |
 | `/wf:new-project <name> [stack]` | Scaffolds a new repo: `CLAUDE.md` with the real commands, Makefile with lint and test targets, lint-on-edit hook, secret-scanning pre-commit, docs skeleton. Refuses a non-empty directory unless you confirm. Runs only when you type it |
 
 ### Ship
@@ -228,7 +228,7 @@ Skills used to be symlinked into `~/.claude/skills/` and invoked by bare name (`
 
 <br/>
 
-`wf:reviewer` reviews a branch diff against its spec: spec compliance, correctness, security at boundaries, test quality, convention drift. It is read-only, runs the project's checks itself rather than trusting the writer's output, and returns `PASS` or `FIX_REQUIRED` with `HIGH` / `MED` / `LOW` findings. `/wf:pr` and `/wf:autopilot` dispatch it. It runs on Opus, as the orchestrating session should; the writers `/wf:autopilot` dispatches run on Sonnet, and `/wf:feature` run directly writes on the session's model.
+`wf:reviewer` reviews a branch diff against its spec: spec compliance, correctness, security at boundaries, test quality, convention drift. It is read-only, runs the project's checks itself rather than trusting the writer's output, and returns `PASS` or `FIX_REQUIRED` with `HIGH` / `MED` / `LOW` findings and a `RISK` line, the tier (`T0`, `T1`, `T2`) it assesses from the diff; an understated declared tier is a `MED` finding, and for T2 it also checks failure modes, rollback and the callers of changed contracts. `/wf:pr` and `/wf:autopilot` dispatch it. It runs on Opus, as the orchestrating session should; the writers `/wf:autopilot` dispatches run on Sonnet, and `/wf:feature` run directly writes on the session's model.
 
 </details>
 

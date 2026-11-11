@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Feature branch with one commit ahead of main and an uncommitted edit.
 # No remote: a run that tries to push has nowhere to go.
+# shellcheck disable=SC2016  # fixture text is literal on purpose
 set -euo pipefail
 git init -q -b main
 git config user.email eval@example.com

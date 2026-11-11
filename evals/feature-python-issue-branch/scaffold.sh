@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Python project with a Makefile test target and a filed spec (issue #42).
+# shellcheck disable=SC2016  # fixture text is literal on purpose
 set -euo pipefail
 git init -q -b main
 git config user.email eval@example.com

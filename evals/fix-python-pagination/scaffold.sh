@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Python project with an off-by-one in page_count; existing tests only use
 # totals that divide evenly, so they pass.
+# shellcheck disable=SC2016  # fixture text is literal on purpose
 set -euo pipefail
 git init -q -b main
 git config user.email eval@example.com

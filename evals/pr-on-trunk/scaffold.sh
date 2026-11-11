@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Clean tree on the trunk branch. No remote.
+# shellcheck disable=SC2016  # fixture text is literal on purpose
 set -euo pipefail
 git init -q -b main
 git config user.email eval@example.com

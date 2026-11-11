@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Shell project on a feature branch: one bug fix spread over two scripts,
 # plus untracked build and scratch files that must not be committed.
+# shellcheck disable=SC2016  # fixture text is literal on purpose
 set -euo pipefail
 git init -q -b main
 git config user.email eval@example.com

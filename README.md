@@ -250,6 +250,8 @@ ai-workflow/
 ├── install.sh / uninstall.sh  # Symlink the two personal files above
 ├── extras/                    # Opt-in personal skills (./install.sh --extra)
 ├── CLAUDE.md                  # Rules for working IN this repo (not installed)
+├── tests/                     # Offline CI checks: install_test.sh, check_links.py
+├── .github/                   # workflows/ci.yml, issue templates, PR template
 └── docs/
     ├── TRUNK_BASED_WORKFLOW.md
     └── SKILL_QUALITY.md
@@ -270,7 +272,7 @@ Edit the sources in this repo, never the installed copies. To try a change befor
 claude --plugin-dir /path/to/ai-workflow
 ```
 
-`claude plugin validate .` checks the manifests and every skill and agent definition. `dotfiles/CLAUDE.md` is symlinked, so edits to it apply immediately.
+`claude plugin validate .` checks the manifests and every skill and agent definition. CI runs it alongside shellcheck, the installer test and the link check; [CONTRIBUTING](CONTRIBUTING.md#ci) lists the commands to run them locally. `dotfiles/CLAUDE.md` is symlinked, so edits to it apply immediately.
 
 </details>
 

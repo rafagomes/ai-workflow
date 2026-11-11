@@ -232,14 +232,14 @@ A: Perfectly — it's the reason worktrees exist. Each slice gets its own worktr
 A: No one commits to main. Trunk-based = PRs to main. The trunk is protected by branch-protection rules (require PR, passing CI, linear history). The difference from Git Flow isn't "less safety" — it's "safety via gates on one branch, not via isolation on five."
 
 **Q: What about GitHub branch protection — is it required?**
-A: Recommended. Minimum useful config:
-- Require PR before merging to `main`
-- Require status checks to pass (CI, lint, tests)
-- Require linear history (no merge commits — use squash or rebase)
+A: Recommended. This repo's own minimum, which is a sensible default for any project:
+- Require a pull request before merging to `main`
+- Require the CI status checks to pass (here: `validate`, `shellcheck`, `installer`, `links`)
+- Require linear history (no merge commits: squash or rebase)
 - Auto-delete merged branches
-- Dismiss stale approvals on new commits
+- No required approvals when there is a single maintainer: the fresh-context reviewer and CI are the gate, and you merge. A team adds required approvals (and dismissal of stale ones on new commits) on top.
 
-Nothing in this toolkit *requires* it; the rules work on discipline alone. But for teams, protection rules turn discipline into defaults.
+Nothing in this toolkit *requires* it; the rules work on discipline alone. But protection rules turn discipline into defaults.
 
 ---
 

@@ -54,7 +54,7 @@ Skills and agents are discovered from `skills/` and `agents/`; nothing needs reg
 | `validate` | The plugin and marketplace manifests | `claude plugin validate .` (warnings about the missing `version` and icon are expected) |
 | `shellcheck` | Every tracked `*.sh` | `shellcheck install.sh uninstall.sh tests/*.sh` |
 | `installer` | `install.sh` and `uninstall.sh`, against a throwaway `HOME` and `CLAUDE_DIR` | `bash tests/install_test.sh` |
-| `links` | Relative links and anchors in tracked Markdown (external URLs are not checked) | `python3 tests/check_links.py` |
+| `links` | Relative links and anchors in tracked Markdown (external URLs are not checked) | `python3 -I tests/check_links.py` |
 
 CI is free-only: no API keys or secrets, no LLM calls (so no `claude plugin eval`), no paid services. Third-party actions are pinned to a full commit SHA with the version in a comment, and the workflow token is read-only. Keep it that way when you change the workflow.
 
@@ -82,7 +82,8 @@ Each commit should leave the toolkit in a working state. Split unrelated changes
 1. Keep PRs focused — one concern per PR
 2. Write a clear description of what changed and why
 3. Link to any related issues
-4. Run the [CI checks](#ci) locally: `claude plugin validate .`, `shellcheck` on any shell script you touched, `bash tests/install_test.sh` if you touched `install.sh` or `uninstall.sh`, and `python3 tests/check_links.py` if you touched Markdown
+4. Fill in the PR template, including its `## Risk` section: **T0** (prose typo, changelog entry or version bump only; review skipped), **T1** (an ordinary change) or **T2** (CI/CD, installer or anything that runs automatically, permissions or secrets, a public contract, anything hard to reverse; a maintainer merges it). Text that instructs an agent (a skill, the agent, a `CLAUDE.md`) is never T0. See [Risk-tiered review](docs/TRUNK_BASED_WORKFLOW.md#risk-tiered-review)
+5. Run the [CI checks](#ci) locally: `claude plugin validate .`, `shellcheck` on any shell script you touched, `bash tests/install_test.sh` if you touched `install.sh` or `uninstall.sh`, and `python3 -I tests/check_links.py` if you touched Markdown
 
 ### What Makes a Good Skill
 
@@ -91,7 +92,7 @@ If you're contributing a new skill:
 - **Single purpose** — one clear workflow per skill
 - **Self-contained** — the SKILL.md should include all instructions Claude needs
 - **Consistent** — follow the patterns in existing skills
-- **Documented** — update the README skills table
+- **Documented** — update the README skills table and tree, the changelog, and the other docs listed in the table in `CLAUDE.md`
 
 ## Code of Conduct
 

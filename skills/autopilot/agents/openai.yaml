@@ -1,0 +1,4 @@
+# Codex: never start this skill from a matching prompt; only `$autopilot` or `/skills` runs it.
+# The Claude Code equivalent is `disable-model-invocation: true` in SKILL.md.
+policy:
+  allow_implicit_invocation: false

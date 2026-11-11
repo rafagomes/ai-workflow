@@ -1,6 +1,6 @@
 ---
 name: prd
-description: "Interview the user and write a Product Requirements Document at docs/PRD.md (or docs/prd/<name>.md for a feature) — problem, scope, user types, key flows, success criteria, risks. Use when the user wants to write a PRD, scope a product or feature, capture requirements or success metrics, or says 'what should we build', 'let's scope this', 'write up the requirements'. Run before /wf:architecture and /wf:spec."
+description: "Interview the user and write a Product Requirements Document at docs/PRD.md (or docs/prd/<name>.md for a feature) — problem, scope, user types, key flows, success criteria, risks. Use when the user wants to write a PRD, scope a product or feature, capture requirements or success metrics, or says 'what should we build', 'let's scope this', 'write up the requirements'. Run first, before /wf:architecture and /wf:roadmap. Not for implementation detail (/wf:spec)."
 argument-hint: "[product or feature name]"
 ---
 Create a Product Requirements Document for: $ARGUMENTS
@@ -108,4 +108,4 @@ Show the user the PRD and ask for feedback. Iterate until they're satisfied.
 Based on the PRD complexity, suggest which specs to create next:
 - "This needs an architecture doc (system structure + testing strategy) — run `/wf:architecture`"
 - "There are security-sensitive parts — run `/wf:threat-model`"
-- "Ready to break into features — run `/wf:spec <feature-name>` for each, then `/wf:roadmap`"
+- "Ready to plan the build — run `/wf:roadmap`, then `/wf:spec <task>` for each task. For one feature outside a roadmap, run `/wf:spec <feature-name>` directly"

@@ -84,6 +84,8 @@ A task is one vertical slice, one PR, one concern (see the size guide in your gl
 1. **Sequential:** Task 1 (foundation)
 2. **Parallel:** Task 2 + Task 3 (no file overlap, both depend only on Task 1)
 
+Tasks grouped as parallel must follow the same rule `/wf:autopilot` uses for waves (step 4): no dependency between them and no file in common.
+
 ## Phase Checklist
 - [ ] All tasks have detailed specs
 - [ ] All `high` tasks have sliced specs

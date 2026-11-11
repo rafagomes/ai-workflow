@@ -6,6 +6,8 @@ disable-model-invocation: true
 ---
 Scaffold a new project: `$ARGUMENTS` is `<project-name> [language/framework]`, e.g. `my-api python/fastapi`, `my-cli go`, `my-app typescript/nextjs`.
 
+In hosts that do not substitute `$ARGUMENTS` (e.g. Codex), it is the text the user wrote after the skill name.
+
 Generate only what you can name a working command for. If a tool for the stack is uncertain, leave it out and say so in the summary. Never write a bracketed placeholder into a generated file.
 
 ## Process

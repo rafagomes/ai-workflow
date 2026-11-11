@@ -5,6 +5,8 @@ argument-hint: "[page | component | path] [notes]"
 ---
 Verify the current UI against its Paper design references for: $ARGUMENTS
 
+In hosts that do not substitute `$ARGUMENTS` (e.g. Codex), it is the text the user wrote after the skill name.
+
 This is a fix-in-place fidelity pass: load the Paper artboards and tokens, drive the running app in a real browser, fix what differs, and re-verify. Fix what you find in the same session; a report of mismatches leaves the user to redo the work you just did. Ask only when a mismatch looks intentional or the fix changes scope.
 
 Tools are named by short name (Paper's `get_basic_info`, Playwright's `browser_navigate`); the MCP prefix depends on how each is installed. Paper preflight: load Paper's guide first (`get_guide`, topic `paper-mcp-instructions`), call `get_font_family_info` before any typographic styling, call `finish_working_on_nodes` if you edit the canvas, and never show raw node IDs to the user. If the Paper MCP is not connected, or the open file is not the project's, stop and say so. Only if the user agrees, fall back to `docs/design/DESIGN_SYSTEM.md` and `docs/design/assets/` screenshots, and mark every finding "doc-derived, not verified in Paper". If the Playwright MCP is not available, stop and suggest installing it; a static comparison cannot catch console errors, clipping or broken interactions.

@@ -5,6 +5,8 @@ argument-hint: "<feature | roadmap task | existing spec>"
 ---
 Create a feature implementation spec for: $ARGUMENTS
 
+In hosts that do not substitute `$ARGUMENTS` (e.g. Codex), it is the text the user wrote after the skill name.
+
 ## Spec Numbering & Path
 
 Every spec path starts with a zero-padded 3-digit prefix mirroring its **roadmap phase number**, so spec order matches roadmap order at a glance.

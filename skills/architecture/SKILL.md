@@ -5,6 +5,8 @@ argument-hint: "[focus area]"
 ---
 Create or update the architecture document. Argument: $ARGUMENTS
 
+In hosts that do not substitute `$ARGUMENTS` (e.g. Codex), it is the text the user wrote after the skill name.
+
 `docs/ARCHITECTURE.md` has two parts. **System** says what is being built and how the pieces fit. **Engineering** says how it is built, tested and shipped. They live in one file because they share the stack and deployment decisions, and because `/wf:spec`, `/wf:feature`, `/wf:fix` and `/wf:autopilot` read both before touching code.
 
 With a focus area (e.g. `testing`), update only that part and leave the rest.

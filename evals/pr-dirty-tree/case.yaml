@@ -1,0 +1,41 @@
+schema_version: "1.1"
+name: pr-dirty-tree
+description: With uncommitted changes the skill stops and points at /wf:commit instead of pushing or opening a PR.
+tags: [pr]
+execution:
+  prompt: |
+    Open a PR for this branch.
+    This is a non-interactive run: where you would ask me something, take
+    the recommended option and say so in your report.
+  max_turns: 15
+  timeout_seconds: 240
+  allowed_tools: [Read, Glob, Grep, Skill]
+context:
+  scaffold_script: scaffold.sh
+graders:
+  - name: points-at-commit-skill
+    type: regex
+    pattern: '/wf:commit'
+    target: last_message
+  - name: names-the-uncommitted-changes
+    type: regex
+    pattern: 'uncommitted'
+    flags: i
+    target: last_message
+  - name: nothing-pushed-or-opened
+    type: tool_used
+    tool: Bash
+    input_match: 'git push|gh pr create'
+    min: 0
+    max: 0
+  - name: does-not-commit-for-the-user
+    type: tool_used
+    tool: Bash
+    input_match: 'git (commit|add|stash)'
+    min: 0
+    max: 0
+  - name: skill-fired
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?pr"'
+    arm: with-only

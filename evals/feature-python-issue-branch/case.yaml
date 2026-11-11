@@ -1,0 +1,54 @@
+schema_version: "1.1"
+name: feature-python-issue-branch
+description: Spec with a filed issue; the skill cuts feat/42-slug-truncate, tests every verification criterion, runs the checks and stops without committing.
+tags: [feature]
+execution:
+  prompt: |
+    Implement the slug-truncate spec (docs/specs/003_slug-truncate.md).
+    This is a non-interactive run: where you would ask me something, take
+    the recommended option and say so in your report.
+  max_turns: 40
+  timeout_seconds: 480
+  allowed_tools: [Read, Glob, Grep, Skill]
+context:
+  scaffold_script: scaffold.sh
+graders:
+  - name: branch-named-from-trunk-metadata
+    type: tool_used
+    tool: Bash
+    input_match: '(switch\s+-c|checkout\s+-b|branch)\s+feat/42-slug-truncate\b'
+  - name: test-for-criterion-2-word-boundary
+    type: regex
+    pattern: 'the-quick'
+    target: { source: file, path: tests/test_textutil.py }
+  - name: test-for-criterion-3-long-word
+    type: regex
+    pattern: 'super"'
+    target: { source: file, path: tests/test_textutil.py }
+  - name: test-for-criterion-4-empty
+    type: regex
+    pattern: 'truncate_slug\(\s*"(---)?"'
+    target: { source: file, path: tests/test_textutil.py }
+  - name: test-for-criterion-5-value-error
+    type: regex
+    pattern: 'ValueError'
+    target: { source: file, path: tests/test_textutil.py }
+  - name: implementation-added
+    type: regex
+    pattern: 'def truncate_slug\('
+    target: { source: file, path: src/textutil.py }
+  - name: checks-were-run
+    type: tool_used
+    tool: Bash
+    input_match: 'make test|unittest'
+  - name: stops-without-committing
+    type: tool_used
+    tool: Bash
+    input_match: 'git (commit|push)'
+    min: 0
+    max: 0
+  - name: skill-fired
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?feature"'
+    arm: with-only

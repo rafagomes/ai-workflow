@@ -1,0 +1,53 @@
+schema_version: "1.1"
+name: fix-shell-kv-parse
+description: A config value containing '=' comes back truncated; the skill adds a regression check to the shell harness, fixes the root cause and does not commit.
+tags: [fix]
+execution:
+  prompt: |
+    Bug: `sh bin/kv.sh conf/app.conf URL` prints `postgres://h/db?a` instead of
+    the full URL, so the app connects to the wrong place. Please fix it.
+    This is a non-interactive run: where you would ask me something, take
+    the recommended option and say so in your report.
+    When you are done, run
+    `sh bin/kv.sh conf/app.conf URL > eval-check.txt`
+    so the result can be checked.
+  max_turns: 30
+  timeout_seconds: 420
+  allowed_tools: [Read, Glob, Grep, Skill]
+context:
+  scaffold_script: scaffold.sh
+graders:
+  - name: fix-is-correct
+    type: regex
+    pattern: '^postgres://h/db\?a=1&b=2$'
+    flags: m
+    target: { source: file, path: eval-check.txt }
+  - name: regression-check-added
+    type: regex
+    pattern: 'URL'
+    target: { source: file, path: tests/run.sh }
+  - name: tests-run-before-and-after-the-fix
+    type: tool_used
+    tool: Bash
+    input_match: 'make test|sh tests/run\.sh'
+    min: 2
+  - name: reports-root-cause
+    type: llm
+    focus: last_message
+    criteria: |
+      The final report states the root cause in one or two sentences:
+      `cut -d= -f2` keeps only the second field, so everything after a second
+      '=' is dropped (the fix is to keep the remaining fields, e.g. `-f2-`).
+      It names the cause, not just the symptom, and mentions the regression
+      check that was added.
+  - name: stops-without-committing
+    type: tool_used
+    tool: Bash
+    input_match: 'git (commit|push)'
+    min: 0
+    max: 0
+  - name: skill-fired
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?fix"'
+    arm: with-only

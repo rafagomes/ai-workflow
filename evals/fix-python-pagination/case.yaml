@@ -1,0 +1,52 @@
+schema_version: "1.1"
+name: fix-python-pagination
+description: A reported wrong page count; the skill writes a failing regression test first, fixes the root cause, reports it and does not commit.
+tags: [fix]
+execution:
+  prompt: |
+    Bug: the list view shows too few pages. page_count(10, 3) returns 3, but
+    10 items at 3 per page need 4 pages. Please fix it.
+    This is a non-interactive run: where you would ask me something, take
+    the recommended option and say so in your report.
+    When you are done, run
+    `python3 -c "from src.paging import page_count as p; print(p(10, 3), p(7, 2), p(0, 5), p(6, 3))" > eval-check.txt`
+    so the result can be checked.
+  max_turns: 30
+  timeout_seconds: 420
+  allowed_tools: [Read, Glob, Grep, Skill]
+context:
+  scaffold_script: scaffold.sh
+graders:
+  - name: fix-is-correct
+    type: regex
+    pattern: '^4 4 0 2$'
+    flags: m
+    target: { source: file, path: eval-check.txt }
+  - name: regression-test-added
+    type: regex
+    pattern: 'page_count\(\s*(10|7)\s*,'
+    target: { source: file, path: tests/test_paging.py }
+  - name: tests-run-before-and-after-the-fix
+    type: tool_used
+    tool: Bash
+    input_match: 'make test|unittest'
+    min: 2
+  - name: reports-root-cause
+    type: llm
+    focus: last_message
+    criteria: |
+      The final report states the root cause of the bug in one or two
+      sentences: page_count uses floor division, which drops the last partial
+      page. It names the cause, not just the symptom, and mentions the
+      regression test that was added.
+  - name: stops-without-committing
+    type: tool_used
+    tool: Bash
+    input_match: 'git (commit|push)'
+    min: 0
+    max: 0
+  - name: skill-fired
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?fix"'
+    arm: with-only

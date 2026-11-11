@@ -1,0 +1,56 @@
+schema_version: "1.1"
+name: commit-one-concern-shell
+description: A single-concern change is one commit, and untracked build output and scratch files are left alone.
+tags: [commit]
+execution:
+  prompt: |
+    Commit my changes. This is a non-interactive run: I approve whatever
+    commit plan you propose, so go ahead without waiting for a reply.
+    When you are done, run
+    `git log --reverse --name-status --format='#%s' main..HEAD > eval-commits.txt`
+    so the result can be checked.
+  max_turns: 20
+  timeout_seconds: 240
+  allowed_tools: [Read, Glob, Grep, Skill]
+context:
+  scaffold_script: scaffold.sh
+graders:
+  - name: exactly-one-commit
+    type: regex
+    pattern: '^#'
+    flags: m
+    match: 'count:1'
+    target: { source: file, path: eval-commits.txt }
+  - name: conventional-subject
+    type: regex
+    pattern: '^#(?:fix|refactor)(?:\([\w./-]+\))?: \S'
+    flags: m
+    target: { source: file, path: eval-commits.txt }
+  - name: both-scripts-committed
+    type: regex
+    pattern: '^M\s+bin/backup\.sh[\s\S]*^M\s+bin/restore\.sh|^M\s+bin/restore\.sh[\s\S]*^M\s+bin/backup\.sh'
+    flags: m
+    target: { source: file, path: eval-commits.txt }
+  - name: artifacts-left-untracked
+    type: regex
+    pattern: '^[AM]\s+(dist/|notes\.scratch)'
+    flags: m
+    match: not_contains
+    target: { source: file, path: eval-commits.txt }
+  - name: no-blanket-staging
+    type: tool_used
+    tool: Bash
+    input_match: 'git add\s+(-A|--all|\.(\s|$|"|&|;))|git commit\s+-[a-z]*a'
+    min: 0
+    max: 0
+  - name: no-push-or-bypass
+    type: tool_used
+    tool: Bash
+    input_match: 'git push|--no-verify|--amend|reset --hard'
+    min: 0
+    max: 0
+  - name: skill-fired
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?commit"'
+    arm: with-only

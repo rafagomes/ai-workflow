@@ -1,0 +1,46 @@
+schema_version: "1.1"
+name: feature-shell-unfiled
+description: Spec whose issue is unfiled; the branch has no issue number, the shell test harness covers each criterion, and nothing is committed.
+tags: [feature]
+execution:
+  prompt: |
+    Build the quiet-flag feature from docs/specs/002_quiet-flag.md.
+    This is a non-interactive run: where you would ask me something, take
+    the recommended option and say so in your report.
+  max_turns: 40
+  timeout_seconds: 480
+  allowed_tools: [Read, Glob, Grep, Skill]
+context:
+  scaffold_script: scaffold.sh
+graders:
+  - name: branch-has-no-issue-number
+    type: tool_used
+    tool: Bash
+    input_match: '(switch\s+-c|checkout\s+-b|branch)\s+feat/quiet-flag\b'
+  - name: test-for-quiet-output
+    type: regex
+    pattern: '--quiet'
+    target: { source: file, path: tests/run.sh }
+  - name: test-for-unknown-flag-exit-code
+    type: regex
+    pattern: '--bogus'
+    target: { source: file, path: tests/run.sh }
+  - name: implementation-handles-quiet
+    type: regex
+    pattern: '--quiet'
+    target: { source: file, path: bin/report.sh }
+  - name: checks-were-run
+    type: tool_used
+    tool: Bash
+    input_match: 'make (test|lint)|sh tests/run\.sh'
+  - name: stops-without-committing
+    type: tool_used
+    tool: Bash
+    input_match: 'git (commit|push)'
+    min: 0
+    max: 0
+  - name: skill-fired
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?feature"'
+    arm: with-only

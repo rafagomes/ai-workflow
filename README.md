@@ -70,7 +70,7 @@ A plugin cannot carry a global instructions file or custom agents, so for those 
 | Installed as | What it is |
 |---|---|
 | `~/.codex/AGENTS.md` | The same global conventions Claude Code gets as `~/.claude/CLAUDE.md` (a symlink into this clone; Codex reads `AGENTS.md`, not `CLAUDE.md`) |
-| `~/.codex/agents/wf-reviewer.toml` | The reviewer as a Codex custom agent named `wf-reviewer`, generated from `agents/reviewer.md` so there is one source. Re-run `./install.sh --codex` after pulling to refresh it |
+| `~/.codex/agents/wf-reviewer.toml` | The reviewer as a Codex custom agent named `wf-reviewer`, generated from `agents/reviewer.md` so there is one source; its `effort` becomes `model_reasoning_effort`. Re-run `./install.sh --codex` after pulling to refresh it |
 
 `CODEX_HOME` selects another Codex config dir. An existing file is moved to `<name>.bak.<timestamp>` first, as for Claude Code, and `./uninstall.sh --codex` removes only what the installer made (the link into this clone and the generated agent, recognised by its first line) and restores the backups. Without `--codex` the installer does not touch `~/.codex`.
 

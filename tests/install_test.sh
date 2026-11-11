@@ -169,6 +169,8 @@ check "--codex: reviewer agent is a regular file" test -f "$TOML" -a ! -L "$TOML
 check_eq "--codex: agent name" "wf-reviewer" "$(toml_get "$TOML" name)"
 check "--codex: agent description non-empty" test -n "$(toml_get "$TOML" description)"
 check_eq "--codex: instructions are the reviewer body" "$(body_of "$CLONE/agents/reviewer.md")" "$(toml_get "$TOML" developer_instructions)"
+check_eq "--codex: effort follows the reviewer frontmatter" "$(sed -n 's/^effort: *//p' "$CLONE/agents/reviewer.md")" "$(toml_get "$TOML" model_reasoning_effort)"
+check "--codex: reviewer frontmatter sets an effort" test -n "$(toml_get "$TOML" model_reasoning_effort)"
 check "--codex: Claude dir still gets CLAUDE.md" test -L "$PRIMARY/CLAUDE.md"
 # 12. Idempotent: same file, no backups.
 cp "$TOML" "$TMP/first.toml"
@@ -184,6 +186,17 @@ check_eq "idempotent: no agent backup" 0 "$(count_bak "$CODEX/agents" wf-reviewe
 install_codex
 check_eq "escaping: description" 'Says "hi" \ and a path C:\x' "$(toml_get "$TOML" description)"
 check_eq "escaping: body verbatim" "$(body_of "$CLONE/agents/reviewer.md")" "$(toml_get "$TOML" developer_instructions)"
+check "no effort in the source: no effort in the agent" test -z "$(grep '^model_reasoning_effort' "$TOML")"
+# Another level maps through as written; an unknown one fails and keeps the old agent.
+printf '%s\n' '---' 'name: reviewer' 'description: d' 'effort: xhigh' '---' 'body' > "$CLONE/agents/reviewer.md"
+install_codex
+check_eq "effort: xhigh maps through" "xhigh" "$(toml_get "$TOML" model_reasoning_effort)"
+cp "$TOML" "$TMP/effort.toml"
+printf '%s\n' '---' 'name: reviewer' 'description: d' 'effort: "high"' '---' 'body' > "$CLONE/agents/reviewer.md"
+rc=0
+HOME="$HOME_DIR" CLAUDE_DIR="$PRIMARY" CODEX_HOME="$CODEX" bash "$CLONE/install.sh" --no-settings --codex >/dev/null 2>&1 || rc=$?
+check "unknown effort: install fails" test "$rc" -ne 0
+check "unknown effort: old agent kept" cmp -s "$TMP/effort.toml" "$TOML"
 # A body that cannot be a literal string fails loudly and leaves the old agent alone.
 cp "$TOML" "$TMP/before.toml"
 printf '%s\n' '---' 'name: reviewer' 'description: d' '---' "has ''' inside" > "$CLONE/agents/reviewer.md"

@@ -13,6 +13,9 @@ This repo is two things: the `wf` Claude Code plugin, and the personal config fi
 - `settings.json` — your untracked settings, symlinked into `~/.claude/` by `install.sh`
 - `CLAUDE.md` (this file) — project-specific rules, loaded only when `cwd` is this repo
 - `extras/` — opt-in personal skills, only installed via `./install.sh --extra`
+- `tests/` — CI checks that run offline: `install_test.sh` (installer and uninstaller) and `check_links.py` (Markdown links and anchors)
+- `.github/` — `workflows/ci.yml` (free-only CI), issue templates and the PR template
+- `docs/` — the trunk-based workflow guide and the skill-quality notes
 
 ## Editing rules
 
@@ -32,6 +35,7 @@ When you change something in this list (left), update the docs on the right in t
 | Workflow convention (trunk rules, commit style, etc.) | `dotfiles/CLAUDE.md`, `docs/TRUNK_BASED_WORKFLOW.md`, `CHANGELOG.md` |
 | Adding/removing a skill | `README.md` Skills tables, `dotfiles/CLAUDE.md` "Toolkit" section, `.claude-plugin/marketplace.json` description if the count changes, `CHANGELOG.md` |
 | Plugin manifests, installer or symlink layout | `install.sh`, `uninstall.sh`, `README.md` install section + tree, `CHANGELOG.md` |
+| CI or test change (`tests/`, `.github/workflows/`) | `CONTRIBUTING.md` CI section, `CHANGELOG.md` |
 | New or repurposed top-level convention file | `README.md` repo-tree section |
 
 If you're not sure whether a change is doc-relevant, it is. Default to updating docs. The cost of a stale doc is much higher than the cost of a one-line CHANGELOG entry.
@@ -43,19 +47,25 @@ If you're not sure whether a change is doc-relevant, it is. Default to updating 
   - **patch** (`0.x.y` → `0.x.y+1`) — doc-only, typo, or internal cleanup with no behavior change
   - **minor** (`0.x.y` → `0.x+1.0`) — new skill, new flag, repositioned skill, new convention, anything users can observe
   - **major** (`0.x.y` → `1.0.0`) — breaking removal/rename of a skill, flag, or convention users may depend on
-- On bump: rename `[Unreleased]` → `[<version>] - <YYYY-MM-DD>`, leave a fresh empty `[Unreleased]` above it, commit, tag `v<version>`, push tag.
+- `main` is branch-protected (PR required, CI required, linear history), so a release is a PR: open `chore: release <version>` renaming `[Unreleased]` → `[<version>] - <YYYY-MM-DD>` with a fresh empty `[Unreleased]` above it (CHANGELOG only: T0, review skipped), merge it, then tag the merge commit `v<version>` on `main` and push the tag.
 
 ## Commit + PR style for this repo
 
-- Conventional commits per global rule (`feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, `test:`, `security:`).
+- Conventional commits per global rule (`feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, `test:`, `perf:`, `build:`, `ci:`, `security:`).
 - Skill changes: `feat(skill-name): ...` or `fix(skill-name): ...`. Doc-only: `docs: ...`.
 - Splitting commits by concern is especially important here because skill, doc, and installer edits often land together — keep each commit independently revertible.
+- The PR body follows the template in `.github/PULL_REQUEST_TEMPLATE.md`, including `## Risk` (tier per the global Risk tiers). Text that instructs an agent (a skill, the agent, a `CLAUDE.md`) is never T0.
 
 ## Testing changes locally
 
 - After editing a skill or the agent: start a session with the working tree loaded as the plugin — `claude --plugin-dir .` — and invoke it (e.g., `/wf:autopilot --dry-run`).
 - After editing a manifest, or adding or renaming a skill: `claude plugin validate .`.
 - After editing `install.sh` or `uninstall.sh`: run them against a throwaway `CLAUDE_DIR` and verify the symlinks land where expected.
+- Before every push, run the CI checks locally (no secrets or network needed except for `validate`'s CLI):
+  - `claude plugin validate .`
+  - `git ls-files -z '*.sh' | xargs -0 shellcheck`
+  - `bash tests/install_test.sh`
+  - `python3 -I tests/check_links.py`
 
 ## When in doubt, ask
 

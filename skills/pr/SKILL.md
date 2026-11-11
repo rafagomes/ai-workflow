@@ -32,8 +32,7 @@ $ARGUMENTS may contain:
    - **On `<base>`:** stop — *"You're on `<base>`. Create a feature branch first."*
    - **Branch name off the convention** (`feat|fix|refactor|docs|chore|test|perf|build|ci|security/<slug>`, see **Trunk-Based Workflow** in your global `CLAUDE.md`): warn and offer to rename before pushing.
    - **Size.** Measure the added hand-written source:
-     `git diff --numstat origin/<base>...HEAD -- . ':(exclude,glob)**/tests/**' ':(exclude,glob)**/__tests__/**' ':(exclude,glob)**/*_test.*' ':(exclude,glob)**/*.test.*' ':(exclude,glob)**/*.spec.*' ':(exclude,glob)**/*_spec.*' ':(exclude,glob)**/test_*' ':(exclude,glob)**/*.lock' ':(exclude,glob)**/*-lock.*'`
-     and sum the first column. Leave out generated files and files that only moved. Over ~500: decide whether it is one concern. One concern: carry on, say in your report how large it is and why it stays together, and add that line to the PR body. More than one: warn, suggest the split, and proceed only if the user confirms. Never split one concern to get under the number.
+     the committed branch, `git diff --numstat origin/<base>...HEAD`, with the same exclusions as `/wf:feature` step 5 (Size gate: tests, lockfiles, generated files and pure moves out). Sum the first column and count the files. Past roughly 1,000 added lines or ~40 changed files, decide whether it is one concern. One concern: carry on, say in your report how large it is and why it stays together, and add that line to the PR body. More than one: warn, suggest the split, and proceed only if the user confirms. Never split one concern to get under the number.
 
 2. **Gather the range:** `git log origin/<base>..HEAD --oneline`, `git diff origin/<base>...HEAD --stat`, and the full diff when drafting. Empty range: stop, nothing to PR. Read every commit and the whole diff — the summary describes the branch, not the tip commit.
 
@@ -53,6 +52,10 @@ $ARGUMENTS may contain:
 
    ## Spec
    <link to the matching spec (scan docs/specs/, specs/, the feature dir)>
+
+   ## Risk
+   <`T1 — <one-line why>`; tiers are defined in your global `CLAUDE.md` → **Risk tiers**.
+   Required unless --no-review skipped the review as T0 (then `T0 — <reason>`)>
 
    ## Review
    <only with --no-review: `Review: skipped — <reason>`>
@@ -98,11 +101,11 @@ $ARGUMENTS may contain:
    Agent(
      subagent_type: "wf:reviewer",
      description: "Review PR branch",
-     prompt: "Base: <base>\nSpec: <spec-path, or 'none'>\nVerify: <the project's lint / typecheck / test commands>"
+     prompt: "Base: <base>\nSpec: <spec-path, or 'none'>\nRisk: <tier from the body>\nVerify: <the project's lint / typecheck / test commands>"
    )
    ```
 
-   Take the `Verify` commands from the project's `CLAUDE.md`, `Makefile` or package scripts; pass `none` if there are none. It returns `VERDICT` (`PASS` or `FIX_REQUIRED`), `REVIEWED_AT` (the sha it read), `CHECKS`, `FINDINGS` (`HIGH` / `MED` / `LOW`) and `SUMMARY`.
+   Take the `Verify` commands from the project's `CLAUDE.md`, `Makefile` or package scripts; pass `none` if there are none. It returns `VERDICT` (`PASS` or `FIX_REQUIRED`), `REVIEWED_AT` (the sha it read), `RISK` (the tier it assesses from the diff), `CHECKS`, `FINDINGS` (`HIGH` / `MED` / `LOW`) and `SUMMARY`.
 
 9. **Process the verdict and fix.** Record the verdict with its `REVIEWED_AT` sha as a PR comment (`gh pr comment <url> --body …`), never as `gh pr review --approve`. Keep the LOW findings of every round: they are not fixed and a re-review does not repeat them, so the final comment and report list all of them.
    - `PASS`, and no LOW finding in any round: `Review: PASS`; go to step 10.
@@ -112,13 +115,15 @@ $ARGUMENTS may contain:
    At most 2 fix cycles. If cycle 2 still returns `FIX_REQUIRED`, record `Review: NEEDS_HUMAN — <count> HIGH/MED unresolved after 2 cycles` (add `Spec ambiguity suspected at <spec-path>` if one finding category recurred), leave the PR a draft, and stop looping. `PASS_WITH_NITS` and `NEEDS_HUMAN` are this skill's labels, not reviewer verdicts. Commits that change behaviour after a `PASS` need a fresh review before merge.
 
 10. **Ready transition.**
-    - If the diff touches a trust boundary, auth, crypto, input parsing, secrets, permissions, dependencies, or anything that runs automatically, run the built-in `/security-review` first (fresh context). A HIGH or MED finding keeps the PR a draft (with `--no-review` the PR is already ready: convert it back with `gh pr ready --undo <url>`; the fix commits change behaviour, so the reviewer in step 8 runs on them even though `--no-review` was passed): fix it under the fix-cycle rules of step 9, commit and push, then re-dispatch the reviewer as step 9's narrow re-review, with the security findings in `Previous findings` (only with `--no-review`, where no review has run yet, is it step 8's full review), and re-run `/security-review` on the new commits. These fixes draw on the same budget as step 9 — 2 fix cycles per PR in total, not 2 more. With no cycle left, or a HIGH/MED security finding still open after the last one, record `Review: NEEDS_HUMAN — security finding unresolved`, leave the PR a draft and stop. List LOW findings in the report.
+    - If the diff touches a security trigger (the list in your global `CLAUDE.md` → **Security triggers**; the security subset of T2), run the built-in `/security-review` first (fresh context). A HIGH or MED finding keeps the PR a draft (with `--no-review` the PR is already ready: convert it back with `gh pr ready --undo <url>`; the fix commits change behaviour, so the reviewer in step 8 runs on them even though `--no-review` was passed): fix it under the fix-cycle rules of step 9, commit and push, then re-dispatch the reviewer as step 9's narrow re-review, with the security findings in `Previous findings` (only with `--no-review`, where no review has run yet, is it step 8's full review), and re-run `/security-review` on the new commits. These fixes draw on the same budget as step 9 — 2 fix cycles per PR in total, not 2 more. With no cycle left, or a HIGH/MED security finding still open after the last one, record `Review: NEEDS_HUMAN — security finding unresolved`, leave the PR a draft and stop. List LOW findings in the report.
     - `PASS` or `PASS_WITH_NITS`, no open HIGH/MED security finding, and no `--draft`: `gh pr ready <url>`.
     - `--draft`: leave it a draft and report the passing verdict.
     - `NEEDS_HUMAN`: leave it a draft and report the unresolved items.
     - `--no-review` and no security fix was made: nothing to flip; step 7 set the final state. If a security fix was made, the bullets above apply.
 
-11. **Report** the PR URL, its draft/ready state, and the review outcome (`PASS`, `PASS_WITH_NITS` with the nits, or `NEEDS_HUMAN` with the unresolved items). If the reviewer's `CHECKS` says a check left the tree dirty, say so, or the next `/wf:pr` run stops on a dirty tree unexplained. Then add this reminder without running it (the PR isn't merged yet):
+11. **Report** the PR URL, its draft/ready state, its tier (the higher of the declared and the reviewer's `RISK`; update the body's `## Risk` section if the reviewer raised it), and the review outcome (`PASS`, `PASS_WITH_NITS` with the nits, or `NEEDS_HUMAN` with the unresolved items). If the reviewer's `CHECKS` says a check left the tree dirty, say so, or the next `/wf:pr` run stops on a dirty tree unexplained. Then add this reminder without running it (the PR isn't merged yet):
+
+    For a T2 PR, state **"T2: a human merges"**. This skill never merges; the line tells the user the PR is not covered by a blanket merge authorization.
 
     *"After merge: `git checkout <base> && git pull --ff-only && git push origin --delete <branch>; git branch -D <branch>` (only once the PR shows MERGED; the remote delete is a no-op if GitHub already deleted it), plus `git worktree remove <path>` if you used a worktree. Never reuse a merged branch."*
 

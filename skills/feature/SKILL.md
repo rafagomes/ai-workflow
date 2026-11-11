@@ -48,15 +48,18 @@ Worktree conventions are in your global `CLAUDE.md` (Trunk-Based Workflow).
 
    **Feature flag.** If the spec's `**Flag:**` names a flag other than `none` (or its `## Feature Flag` section does), verify the new behavior is gated by it. If the flag does not exist yet, create it, default off, as part of this slice.
 
+   **Risk tier.** Take the spec's `**Risk:**` (tiers are defined in **Risk tiers** in your global `CLAUDE.md`) and check it against the diff: a diff that hits a T2 criterion makes the change T2 whatever the spec says, and the diff wins when it is higher. With no spec tier, derive it from the diff. A T2 change is flagged in the report so the user knows it needs a human merge.
+
    **Size gate.** Measure the hand-written source this change adds:
    `git diff --numstat $(git merge-base origin/<base> HEAD) -- . ':(exclude,glob)**/tests/**' ':(exclude,glob)**/__tests__/**' ':(exclude,glob)**/*_test.*' ':(exclude,glob)**/*.test.*' ':(exclude,glob)**/*.spec.*' ':(exclude,glob)**/*_spec.*' ':(exclude,glob)**/test_*' ':(exclude,glob)**/*.lock' ':(exclude,glob)**/*-lock.*'`
-   This compares the working tree with the point the branch left the trunk, so it counts committed and uncommitted work alike. Sum the first column and add the line counts of new untracked source files (`git status --porcelain` lists them; `git diff` does not), applying the same exclusions and skipping binaries. Leave out generated files and files that only moved. Over ~500: decide whether it is one concern. One concern: carry on, and say in the report how large it is and why it stays together. More than one: stop and ask. For a single-file spec, offer "ship as-is" plus one or two concrete splits (e.g. sub-slices under `docs/specs/NNN_<name>/`), recommending "ship as-is" only when the bulk is mechanical. For a slice of a sliced feature, offer "ship as-is" and "defer these hunks to a follow-up slice". The number prompts the question and is not a cap: never split one concern to get under it.
+   This compares the working tree with the point the branch left the trunk, so it counts committed and uncommitted work alike. Sum the first column and add the line counts of new untracked source files (`git status --porcelain` lists them; `git diff` does not), applying the same exclusions and skipping binaries. Leave out generated files and files that only moved. Count the changed source files too: the same command with `--name-only`, plus the untracked ones. Past roughly 1,000 added lines or ~40 changed files, check it is still one concern. One concern: carry on, and say in the report how large it is and why it stays together. More than one: stop and ask. For a single-file spec, offer "ship as-is" plus one or two concrete splits (e.g. sub-slices under `docs/specs/NNN_<name>/`), recommending "ship as-is" only when the bulk is mechanical. For a slice of a sliced feature, offer "ship as-is" and "defer these hunks to a follow-up slice". The number prompts the question and is not a cap: never split one concern to get under it.
 
 6. **Report and stop.** A reviewer needs cold context, so do not review your own work here: `/wf:pr` dispatches `wf:reviewer` once the commits exist. With `--commit` or `--pr`, run the flow under Parse arguments; on a pre-commit hook failure, stop and surface the error, never bypass with `--no-verify`.
 
    Without a flag, summarize:
    - **Files changed** - `git diff --stat`, or a short list.
    - **Verification** - each check in one line.
+   - **Risk** - `T1 — <why>`, noting where the diff raised it above the spec.
    - **Slice metadata** - spec link and `Closes #N` (or "none, ran before /wf:issues"), flag state, test plan.
 
    Then stop. The user reviews the working tree and decides next steps, typically `/wf:commit` then `/wf:pr`.

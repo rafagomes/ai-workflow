@@ -23,19 +23,21 @@ Run `git fetch origin`, and if the tree is dirty with unrelated changes, say so 
 
 3. **Pick the test layer** as in `/wf:feature` step 2 (`docs/ARCHITECTURE.md` Testing Strategy, else inferred from the project): unit for pure logic, integration at a boundary (API, database, service interaction), e2e only if a critical user flow broke and had no e2e coverage.
 
-4. **Fix.** Write the regression test first and watch it fail for the right reason. Then make the minimal change that fixes the root cause, without refactoring surrounding code, and confirm the test passes. If the bug is at a trust boundary or in auth, crypto, input parsing, secrets, permissions, dependencies, or anything that runs automatically, note that it needs `/security-review` before the PR.
+4. **Fix.** Write the regression test first and watch it fail for the right reason. Then make the minimal change that fixes the root cause, without refactoring surrounding code, and confirm the test passes. If the bug is at a security trigger (see **Security triggers** in your global `CLAUDE.md`), note that it needs `/security-review` before the PR.
 
 5. **Quality checks.** Run the project's lint, typecheck and the full test suite (so a regression elsewhere shows up); report each in one line (command, result) and paste output only for a failure.
 
+   **Risk tier.** Derive the tier from the diff (see **Risk tiers** in your global `CLAUDE.md`). A fix at a security trigger or in a shared core module is T2 however small, and needs a human merge; say so in the report.
+
    **Size gate.** Measure the hand-written source this change adds:
-   `git diff --numstat $(git merge-base origin/<base> HEAD) -- . ':(exclude,glob)**/tests/**' ':(exclude,glob)**/__tests__/**' ':(exclude,glob)**/*_test.*' ':(exclude,glob)**/*.test.*' ':(exclude,glob)**/*.spec.*' ':(exclude,glob)**/*_spec.*' ':(exclude,glob)**/test_*' ':(exclude,glob)**/*.lock' ':(exclude,glob)**/*-lock.*'`
-   This compares the working tree with the point the branch left the trunk, so it counts committed and uncommitted work alike. Sum the first column and add the line counts of new untracked source files (`git status --porcelain` lists them; `git diff` does not), applying the same exclusions and skipping binaries. Leave out generated files and files that only moved. Over ~500: decide whether it is one concern. One concern: carry on, and say in the report how large it is and why it stays together. More than one (a fix that grows into a refactor is two slices): stop and propose a split via AskUserQuestion, and do not leave it in the working tree without the user's override.
+   Measure as in `/wf:feature` step 5 (Size gate): added source lines and changed source files, tests, generated files, lockfiles and pure moves excluded. Past roughly 1,000 lines or ~40 files, decide whether it is still one concern. One concern: carry on, and say in the report how large it is and why it stays together. More than one (a fix that grows into a refactor is two slices): stop and propose a split via AskUserQuestion, and do not leave it in the working tree without the user's override.
 
 6. **Report and stop.** Do not review your own fix: `/wf:pr` dispatches `wf:reviewer` once the commits exist. Summarize:
    - **Root cause** - 1-2 sentences on what was broken.
    - **Files changed** - `git diff --stat`, or a short list.
    - **Regression tests** - layers added, where they live, how to re-run them.
    - **Verification** - each check in one line.
+   - **Risk** - `T1 — <why>`.
    - **Issue link** - if one was provided.
 
    Then stop. The user reviews the working tree and decides next steps, typically `/wf:commit` then `/wf:pr`.

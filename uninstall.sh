@@ -25,7 +25,6 @@ CLAUDE_DIR="$(canonical_dir "${CLAUDE_DIR:-$HOME/.claude}")"
 BIN_DIR="${AIWF_BIN_DIR:-$HOME/.local/bin}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
@@ -47,6 +46,7 @@ unlink_if_ours() {
 
         # Restore most recent backup if one exists
         local latest_backup
+        # shellcheck disable=SC2012 # newest by mtime; names are our own .bak.<ts>
         latest_backup=$(ls -t "${target}.bak."* 2>/dev/null | head -1 || true)
         if [ -n "$latest_backup" ]; then
             mv "$latest_backup" "$target"

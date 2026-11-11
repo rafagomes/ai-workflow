@@ -61,7 +61,8 @@ link() {
     if [ -L "$dst" ] && [[ "$(readlink "$dst")" == "$SCRIPT_DIR"/* ]]; then
         rm "$dst"
     elif [ -e "$dst" ] || [ -L "$dst" ]; then
-        local backup="${dst}.bak.$(date +%s)"
+        local backup
+        backup="${dst}.bak.$(date +%s)"
         warn "Backing up existing $dst -> $backup"
         mv "$dst" "$backup"
     fi
@@ -88,6 +89,7 @@ fi
 # Extras: personal add-ons outside the plugin. Multi-file skills are linked as
 # whole directories so their supporting files resolve.
 if [ "$INSTALL_EXTRAS" -eq 1 ]; then
+    # shellcheck disable=SC2043 # a list that currently has one entry
     for skill in rlabs-design; do
         link "extras/skills/$skill" "skills/$skill"
     done

@@ -45,6 +45,19 @@ claude --plugin-dir .
 
 Skills and agents are discovered from `skills/` and `agents/`; nothing needs registering. `install.sh` and `uninstall.sh` only handle the global `CLAUDE.md` and `settings.json`.
 
+#### CI
+
+`.github/workflows/ci.yml` runs on every pull request and on pushes to `main`. Run the same checks locally before you push:
+
+| Job | What it checks | Run locally |
+|-----|----------------|-------------|
+| `validate` | The plugin and marketplace manifests | `claude plugin validate .` (warnings about the missing `version` and icon are expected) |
+| `shellcheck` | Every tracked `*.sh` | `shellcheck install.sh uninstall.sh tests/*.sh` |
+| `installer` | `install.sh` and `uninstall.sh`, against a throwaway `HOME` and `CLAUDE_DIR` | `bash tests/install_test.sh` |
+| `links` | Relative links and anchors in tracked Markdown (external URLs are not checked) | `python3 tests/check_links.py` |
+
+CI is free-only: no API keys or secrets, no LLM calls (so no `claude plugin eval`), no paid services. Third-party actions are pinned to a full commit SHA with the version in a comment, and the workflow token is read-only. Keep it that way when you change the workflow.
+
 ### Commit Conventions
 
 This project uses [Conventional Commits](https://www.conventionalcommits.org/):
@@ -56,6 +69,10 @@ refactor:   Code restructuring without behavior change
 docs:       Documentation changes
 chore:      Maintenance (install scripts, config)
 test:       Test additions or changes
+perf:       Performance improvement
+build:      Build or packaging changes
+ci:         CI configuration (`.github/workflows/`)
+security:   Security fix or hardening
 ```
 
 Each commit should leave the toolkit in a working state. Split unrelated changes into separate commits.
@@ -65,7 +82,7 @@ Each commit should leave the toolkit in a working state. Split unrelated changes
 1. Keep PRs focused — one concern per PR
 2. Write a clear description of what changed and why
 3. Link to any related issues
-4. Run `claude plugin validate .`; if you touched `install.sh` or `uninstall.sh`, run them against a throwaway `CLAUDE_DIR`
+4. Run the [CI checks](#ci) locally: `claude plugin validate .`, `shellcheck` on any shell script you touched, `bash tests/install_test.sh` if you touched `install.sh` or `uninstall.sh`, and `python3 tests/check_links.py` if you touched Markdown
 
 ### What Makes a Good Skill
 

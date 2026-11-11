@@ -6,6 +6,7 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/rafagomes/ai-workflow/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/rafagomes/ai-workflow/ci.yml?branch=main&style=flat-square&label=CI" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/rafagomes/ai-workflow?style=flat-square" alt="License"></a>
   <a href="CHANGELOG.md"><img src="https://img.shields.io/github/v/tag/rafagomes/ai-workflow?style=flat-square&label=version" alt="Version"></a>
   <a href="https://github.com/rafagomes/ai-workflow/issues"><img src="https://img.shields.io/github/issues/rafagomes/ai-workflow?style=flat-square" alt="Issues"></a>

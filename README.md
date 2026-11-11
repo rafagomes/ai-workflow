@@ -52,6 +52,7 @@ That is the whole loop. Everything else in this README is detail.
 |---|---|
 | **15 skills** | One per step, from the first product interview to the merged pull request. All namespaced `/wf:<name>`. |
 | **A reviewer agent** | Read-only and fresh-context. It runs the project's checks itself and returns `PASS` or `FIX_REQUIRED`, plus the risk tier it assesses from the diff. Every behaviour-changing PR goes through it before it is marked ready. |
+| **Guardrail hooks** | A `PreToolUse` hook on Bash blocks `--no-verify`, force-pushing or deleting the trunk, and `gh pr review --approve`, so those rules hold even when an agent forgets them. Heuristic, fails open, and `WF_GUARD=off` turns it off. |
 | **Trunk-based by construction** | Short-lived branches, one PR per concern; review depth follows risk (T0, T1, T2), not size. Past ~1,000 added source lines or ~40 files is the prompt to check it is still one concern. [Why and how →](docs/TRUNK_BASED_WORKFLOW.md) |
 | **Writer / reviewer separation** | The session that wrote the code never reviews it, and merging stays your decision unless you run `/wf:autopilot`, and even then a T2 (high-risk) PR waits for you. |
 | **Optional global conventions** | A `CLAUDE.md` applied to every project: verification, commit style, the trunk rules, review before merge. |
@@ -245,6 +246,7 @@ ai-workflow/
 ├── skills/<name>/SKILL.md     # The 15 skills
 ├── skills/<name>/references/  # Templates and per-stack detail a skill reads only when needed
 ├── agents/reviewer.md         # The reviewer agent
+├── hooks/                     # Guardrail hook: hooks.json and guard.sh
 ├── dotfiles/CLAUDE.md         # Global conventions (symlinked to ~/.claude/CLAUDE.md)
 ├── settings.example.json      # Seed for your untracked settings.json
 ├── install.sh / uninstall.sh  # Symlink the two personal files above

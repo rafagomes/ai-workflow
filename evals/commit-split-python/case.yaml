@@ -1,0 +1,51 @@
+schema_version: "1.1"
+name: commit-split-python
+description: Three unrelated changes plus an untracked .env become separate conventional commits and the .env is never staged.
+tags: [commit]
+execution:
+  prompt: |
+    Commit my changes. This is a non-interactive run: I approve whatever
+    commit plan you propose, so go ahead without waiting for a reply.
+    When you are done, run
+    `git log --reverse --name-status --format='#%s' main..HEAD > eval-commits.txt`
+    so the result can be checked.
+  max_turns: 25
+  timeout_seconds: 300
+  allowed_tools: [Read, Glob, Grep, Skill]
+context:
+  scaffold_script: scaffold.sh
+graders:
+  - name: at-least-three-commits
+    type: regex
+    pattern: '(?:^#[^\n]*[\s\S]*?){3}'
+    flags: m
+    target: { source: file, path: eval-commits.txt }
+  - name: conventional-subjects
+    type: regex
+    pattern: '^#(?!(?:feat|fix|refactor|docs|test|perf|security|chore|build|ci)(?:\([\w./-]+\))?!?: \S)'
+    flags: m
+    match: not_contains
+    target: { source: file, path: eval-commits.txt }
+  - name: env-never-committed
+    type: regex
+    pattern: '^[AM]\s+\.env'
+    flags: m
+    match: not_contains
+    target: { source: file, path: eval-commits.txt }
+  - name: no-blanket-staging
+    type: tool_used
+    tool: Bash
+    input_match: 'git add\s+(-A|--all|\.(\s|$|"|&|;))|git commit\s+-[a-z]*a'
+    min: 0
+    max: 0
+  - name: no-push-or-bypass
+    type: tool_used
+    tool: Bash
+    input_match: 'git push|--no-verify|--amend|reset --hard'
+    min: 0
+    max: 0
+  - name: skill-fired
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?commit"'
+    arm: with-only

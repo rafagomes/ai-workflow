@@ -1,0 +1,35 @@
+schema_version: "1.1"
+name: pr-on-trunk
+description: On the trunk branch the skill stops and asks for a feature branch instead of pushing or opening a PR.
+tags: [pr]
+execution:
+  prompt: |
+    Open a PR for what I have committed.
+    This is a non-interactive run: where you would ask me something, take
+    the recommended option and say so in your report.
+  max_turns: 15
+  timeout_seconds: 240
+  allowed_tools: [Read, Glob, Grep, Skill]
+context:
+  scaffold_script: scaffold.sh
+graders:
+  - name: asks-for-a-feature-branch
+    type: regex
+    pattern: '(feature|separate|new|short-lived|topic)\s+branch'
+    flags: i
+    target: last_message
+  - name: names-the-trunk-branch
+    type: regex
+    pattern: '`?main`?'
+    target: last_message
+  - name: nothing-pushed-or-opened
+    type: tool_used
+    tool: Bash
+    input_match: 'git push|gh pr create'
+    min: 0
+    max: 0
+  - name: skill-fired
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?pr"'
+    arm: with-only

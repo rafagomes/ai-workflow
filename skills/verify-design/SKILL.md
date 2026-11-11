@@ -33,7 +33,7 @@ Read every file the target page touches: page, components, global CSS, UI primit
 
 ## 4. Check in a real browser
 
-Take the dev server's start command and URL from the project's `CLAUDE.md`, `package.json` scripts or `Makefile`; if it is not running, start it in the background, and stop any server you started when done. If you cannot tell how to start it, ask. If the page needs authentication, ask once for test credentials or a seed route; do not guess or create accounts.
+Take the dev server's start command and URL from the project's agent instructions (`CLAUDE.md` or `AGENTS.md`), `package.json` scripts or `Makefile`; if it is not running, start it in the background, and stop any server you started when done. If you cannot tell how to start it, ask. If the page needs authentication, ask once for test credentials or a seed route; do not guess or create accounts.
 
 For each page in scope:
 
@@ -63,7 +63,7 @@ A state that neither Paper nor the UI has: note it, do not invent it. Source of 
 
 ## 6. Re-verify
 
-Repeat the browser pass (desktop, mobile, flagged interactions) and confirm the screenshots match Paper and the console is clean. Run the project's lint, typecheck and tests (from `CLAUDE.md`, `package.json` or the `Makefile`); report each in one line (command, result) and show output only for a failure.
+Repeat the browser pass (desktop, mobile, flagged interactions) and confirm the screenshots match Paper and the console is clean. Run the project's lint, typecheck and tests (from the project's agent instructions, `package.json` or the `Makefile`); report each in one line (command, result) and show output only for a failure.
 
 ## Report
 

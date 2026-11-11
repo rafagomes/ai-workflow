@@ -17,7 +17,7 @@ Phase files are `NNN_<slug>.md` (zero-padded, underscore, kebab-case slug) so th
 
 ## Context Gathering
 
-Read what exists before asking anything: `docs/PRD.md` or `docs/prd/`, `docs/ARCHITECTURE.md`, `docs/THREAT_MODEL.md`, the project's `CLAUDE.md` (build commands), `README.md`, `docs/specs/` (specs may not exist yet; the roadmap then says which need writing), `docs/roadmap/` (build on it, avoid duplicates), the directory structure and `git log --oneline -20` (what is already implemented).
+Read what exists before asking anything: `docs/PRD.md` or `docs/prd/`, `docs/ARCHITECTURE.md`, `docs/THREAT_MODEL.md`, the project's agent instructions (`CLAUDE.md` or `AGENTS.md`) (build commands), `README.md`, `docs/specs/` (specs may not exist yet; the roadmap then says which need writing), `docs/roadmap/` (build on it, avoid duplicates), the directory structure and `git log --oneline -20` (what is already implemented).
 
 If neither a PRD nor an architecture doc exists, say so and offer two choices: create one (`/wf:prd`, `/wf:architecture`), or build the roadmap from the user's stated goal plus the code and README. Do not stop silently.
 
@@ -25,7 +25,7 @@ If neither a PRD nor an architecture doc exists, say so and offer two choices: c
 
 ## Interview
 
-Draft the phase split, the MVP boundary and the parallelism from the docs first. Ask only what the docs leave open, at most 4 questions in one AskUserQuestion call; if the user cannot be asked, proceed from the docs and list each assumption as an open question. Typical gaps: priorities and deadlines, how many parallel worktrees/agents are practical (solo or team), where a human review is needed before continuing, build/test/lint commands if the project's `CLAUDE.md` lacks them. Push back where two tasks touch the same files: they must be sequential.
+Draft the phase split, the MVP boundary and the parallelism from the docs first. Ask only what the docs leave open, at most 4 questions in one AskUserQuestion call; if the user cannot be asked, proceed from the docs and list each assumption as an open question. Typical gaps: priorities and deadlines, how many parallel worktrees/agents are practical (solo or team), where a human review is needed before continuing, build/test/lint commands if the project's agent instructions (`CLAUDE.md` or `AGENTS.md`) lacks them. Push back where two tasks touch the same files: they must be sequential.
 
 A full roadmap needs an MVP boundary: the last phase required to ship the MVP. Take it from the PRD's "in scope (v1)" section; if that does not settle it, ask.
 
@@ -39,7 +39,7 @@ Create `docs/roadmap/` if it does not exist.
 
 Write `docs/roadmap/NNN_<phase-name>.md`. If `docs/roadmap/README.md` exists, append the phase's row to its table (MVP column `—` unless the user says otherwise).
 
-A task is one vertical slice, one PR, one concern (see the size guide in your global `CLAUDE.md`). Complexity and the `Risk` tier are defined in `/wf:spec` (tiers in **Risk tiers** in your global `CLAUDE.md`); set `Risk` from what the task touches, not how big it is; a `high` task normally points at a sliced spec (a directory with a `## Slices` table). The roadmap task then tracks the spec and the PRs come from its slices.
+A task is one vertical slice, one PR, one concern (see the size guide in your global agent instructions (`~/.claude/CLAUDE.md` or `~/.codex/AGENTS.md`)). Complexity and the `Risk` tier are defined in `/wf:spec` (tiers in **Risk tiers** in your global agent instructions (`~/.claude/CLAUDE.md` or `~/.codex/AGENTS.md`)); set `Risk` from what the task touches, not how big it is; a `high` task normally points at a sliced spec (a directory with a `## Slices` table). The roadmap task then tracks the spec and the PRs come from its slices.
 
 ```markdown
 # Phase NNN: [Name]

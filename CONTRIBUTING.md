@@ -57,6 +57,8 @@ Skills and agents are discovered from `skills/` and `agents/`; nothing needs reg
 | `hooks` | The guardrail hook (`hooks/guard.sh`) against JSON fixtures | `bash tests/hooks_test.sh` |
 | `links` | Relative links and anchors in tracked Markdown (external URLs are not checked) | `python3 -I tests/check_links.py` |
 
+The guardrail hook (`hooks/guard.sh`) reads each command two ways and blocks if either blocks, and it also checks the body of every `$(...)` and backtick span. A `$(cat <<'EOF' ...)` commit message with an odd number of quotes around `-n`, `--no-verify` or a `git push -f` line can be falsely blocked; write the message to a file and use `git commit -F <file>`. Change the hook only with a fixture in `tests/hooks_test.sh` for every case you handle.
+
 CI is free-only: no API keys or secrets, no LLM calls (so no `claude plugin eval`), no paid services. Third-party actions are pinned to a full commit SHA with the version in a comment, and the workflow token is read-only. Keep it that way when you change the workflow.
 
 ### Commit Conventions

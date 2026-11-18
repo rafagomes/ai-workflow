@@ -42,9 +42,9 @@ Worktree conventions are in your global agent instructions (`~/.claude/CLAUDE.md
 
    Place each test by what it covers, mirroring the project's `unit/` and `integration/` split: a test that crosses a real boundary is integration even if it runs fast, and pure logic is unit. Misplaced tests drift out of the slow-path CI filter and stop catching boundary regressions.
 
-3. **Plan if non-trivial.** If the change touches 3+ files or has non-obvious design decisions, align before writing code: interactive, use Plan Mode; headless (a dispatched writer cannot enter Plan Mode), write the plan in the final report, and in the PR body when `--pr` is used.
+3. **Settle open decisions first.** If the spec leaves a design decision open, settle it with the user before writing code. Headless (a dispatched writer cannot ask), make the call and record it in the final report, and in the PR body when `--pr` is used.
 
-4. **Implement with tests, layer by layer.** Unit, then integration, then e2e. Run each layer and fix failures before moving on. Vary the test data in whatever the code depends on (sizes, lengths, order, scale); uniform fixtures hide bugs. Before the quality checks, remove or break the behaviour each new test covers and see the test fail; rewrite a test that still passes.
+4. **Implement with tests** at the layers step 2 chose, running them as you go. Vary the test data in whatever the code depends on (sizes, lengths, order, scale); uniform fixtures hide bugs. Before the quality checks, remove or break the behaviour each new test covers and see the test fail; rewrite a test that still passes.
 
 5. **Quality checks.** Run the project's lint, typecheck and tests (commands are in the project's agent instructions (`CLAUDE.md` or `AGENTS.md`) or Makefile); report each in one line (command, result) and paste output only for a failure.
 
